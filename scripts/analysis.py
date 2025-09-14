@@ -57,16 +57,25 @@ def resolve_output_dirs(base: Path, cfg_path: Optional[Path] = None) -> Tuple[Pa
     base: project root (usually Path(__file__).resolve().parents[0])
     cfg_path: optional path to config.json (if None, will check base/config.json)
     """
-    cfg_fp = cfg_path or (base / 'config.json')
+    # Determine project root by searching upwards for config.json; fall back to provided base
+    project_root: Optional[Path] = None
+    for p in (base, *base.parents):
+        if (p / 'config.json').exists():
+            project_root = p
+            break
+    if project_root is None:
+        project_root = base
+
+    cfg_fp = cfg_path or (project_root / 'config.json')
     if cfg_fp.exists():
         try:
             with open(cfg_fp, 'r') as fh:
                 cfg = json.load(fh)
-            out_root = Path(cfg.get('paths', {}).get('output_directory', base / 'analysis_results'))
+            out_root = Path(cfg.get('paths', {}).get('output_directory', project_root / 'analysis_results'))
         except Exception:
-            out_root = base / 'analysis_results'
+            out_root = project_root / 'analysis_results'
     else:
-        out_root = base / 'analysis_results'
+        out_root = project_root / 'analysis_results'
 
     reports = out_root / 'reports'
     models = out_root / 'models'
