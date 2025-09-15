@@ -1,3 +1,10 @@
+"""
+Main script for RPE image analysis pipeline.
+
+This script orchestrates the full pipeline: feature extraction, data cleaning,
+PCA, model training, and artifact saving based on a configuration file.
+"""
+
 import json
 import os
 from pathlib import Path
@@ -12,6 +19,13 @@ from scripts.analysis import clean_and_prepare, run_pca, train_stacking, save_ar
 
 
 def run_from_config(config: dict, verbose: bool = False):
+    """
+    Run the full RPE analysis pipeline from configuration.
+
+    Args:
+        config: Configuration dictionary.
+        verbose: Enable verbose output.
+    """
     from scripts.analysis import resolve_output_dirs
     base = Path(__file__).resolve().parent
     out_root, reports_dir, models_dir, plots_dir = resolve_output_dirs(base)
@@ -26,7 +40,7 @@ def run_from_config(config: dict, verbose: bool = False):
     # Determine where to save features CSV: use user-specified path if absolute,
     # otherwise place in <out_root>/reports/
     user_csv = config.get('paths', {}).get('output_features_csv')
-    if user_csv and os.path.isabs(user_csv):
+    if user_csv and Path(user_csv).is_absolute():
         out_fp = user_csv
     else:
         out_fp = str(reports_dir / 'extracted_features.csv')
@@ -67,10 +81,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args = parser.parse_args()
     # Normalize path separators so both forward and backslashes work on Windows
-    config_path = os.path.normpath(args.config)
-    if not os.path.isabs(config_path):
-        config_path = os.path.abspath(config_path)
-    if not os.path.isfile(config_path):
+    config_path = Path(args.config).resolve()
+    if not config_path.is_file():
         print(f"Error: config.json not found at {config_path}")
         sys.exit(2)
 

@@ -18,7 +18,17 @@ import matplotlib.pyplot as plt
 from skimage.filters import threshold_otsu
 
 
-def compute_masks(image_np: np.ndarray, cfg_fp: dict):
+def compute_masks(image_np: np.ndarray, config_params: dict):
+    """
+    Compute red, green, gray channels and binary masks.
+
+    Args:
+        image_np: RGB image as numpy array.
+        config_params: Configuration parameters.
+
+    Returns:
+        Tuple of red, green, gray, red_mask, green_mask.
+    """
     red = image_np[:, :, 0].astype(float)
     green = image_np[:, :, 1].astype(float)
     gray = np.mean(image_np, axis=2).astype(np.uint8)
@@ -26,29 +36,38 @@ def compute_masks(image_np: np.ndarray, cfg_fp: dict):
     red_norm = red / 255.0
     green_norm = green / 255.0
 
-    if cfg_fp.get('use_otsu', True):
+    if config_params.get('use_otsu', True):
         try:
             g_thresh = threshold_otsu(green)
             green_binary = (green > g_thresh).astype(np.uint8)
         except Exception:
-            green_binary = (green_norm > float(cfg_fp.get('green_channel_threshold', 0.2))).astype(np.uint8)
+            green_binary = (green_norm > float(config_params.get('green_channel_threshold', 0.2))).astype(np.uint8)
         try:
             r_thresh = threshold_otsu(red)
             red_binary = (red > r_thresh).astype(np.uint8)
         except Exception:
-            red_binary = (red_norm > float(cfg_fp.get('red_channel_threshold', 0.3))).astype(np.uint8)
+            red_binary = (red_norm > float(config_params.get('red_channel_threshold', 0.3))).astype(np.uint8)
     else:
-        green_binary = (green_norm > float(cfg_fp.get('green_channel_threshold', 0.2))).astype(np.uint8)
-        red_binary = (red_norm > float(cfg_fp.get('red_channel_threshold', 0.3))).astype(np.uint8)
+        green_binary = (green_norm > float(config_params.get('green_channel_threshold', 0.2))).astype(np.uint8)
+        red_binary = (red_norm > float(config_params.get('red_channel_threshold', 0.3))).astype(np.uint8)
 
     return red, green, gray, red_binary, green_binary
 
 
-def find_first_tiff(image_dir: str):
-    for root, dirs, files in os.walk(image_dir):
-        for f in files:
-            if f.lower().endswith(('.tif', '.tiff')):
-                return os.path.join(root, f)
+def find_first_tiff(image_dir: str) -> str | None:
+    """
+    Find the first TIFF file in the directory tree.
+
+    Args:
+        image_dir: Directory to search.
+
+    Returns:
+        Path to the first TIFF file or None.
+    """
+    image_path = Path(image_dir)
+    for file_path in image_path.rglob('*'):
+        if file_path.suffix.lower() in ('.tif', '.tiff'):
+            return str(file_path)
     return None
 
 
@@ -60,8 +79,8 @@ def main():
     args = parser.parse_args()
 
     # normalize separators so forward-slash paths work on Windows
-    config_path = os.path.normpath(args.config)
-    if not os.path.isfile(config_path):
+    config_path = Path(args.config).resolve()
+    if not config_path.is_file():
         print(f"Config not found: {config_path}")
         return
 
@@ -85,8 +104,8 @@ def main():
     with Image.open(img_path).convert('RGB') as im:
         img_np = np.array(im, dtype=np.uint8)
 
-    cfg_fp = cfg.get('feature_params', {})
-    red, green, gray, red_mask, green_mask = compute_masks(img_np, cfg_fp)
+    config_params = cfg.get('feature_params', {})
+    red, green, gray, red_mask, green_mask = compute_masks(img_np, config_params)
 
     # Prepare figure
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))

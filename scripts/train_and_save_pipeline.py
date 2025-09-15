@@ -119,22 +119,57 @@ def main():
 
     # Feature importances from RF base learner in stacking (if present)
     try:
-        model = pipeline.named_steps['model']
-        if hasattr(model, 'named_estimators_') and 'rf' in model.named_estimators_:
-            rf_bt = model.named_estimators_['rf']
-            importances = getattr(rf_bt, 'feature_importances_', None)
-            if importances is not None:
-                fi = pd.DataFrame({'feature': feature_names, 'importance': importances})
-                fi = fi.sort_values('importance', ascending=False)
-                fi.to_csv(reports_dir / 'feature_importances.csv', index=False)
+        model = pipeline.named_steps.get('model')
+        rf_bt = None
+        # Try to find a RandomForestClassifier among named_estimators_
+        try:
+            from sklearn.ensemble import RandomForestClassifier as _RFC
+        except Exception:
+            _RFC = None
 
-                plt.figure(figsize=(10, 6))
-                plt.bar(fi['feature'].head(30), fi['importance'].head(30))
-                plt.xticks(rotation=90)
-                plt.title('Top 30 Feature Importances (RF)')
-                plt.tight_layout()
-                plt.savefig(plots_dir / 'feature_importances.png')
-                plt.close()
+        if model is not None and hasattr(model, 'named_estimators_') and _RFC is not None:
+            named = model.named_estimators_
+            # Preferred key 'rf'
+            if 'rf' in named:
+                rf_bt = named.get('rf')
+            else:
+                # Fallback: search for an estimator instance of RandomForestClassifier
+                for nm, est in named.items():
+                    try:
+                        if isinstance(est, _RFC):
+                            rf_bt = est
+                            break
+                    except Exception:
+                        continue
+
+        # As a last resort, check attribute estimators_ (fitted estimators list)
+        if rf_bt is None and model is not None and hasattr(model, 'estimators_') and _RFC is not None:
+            for est in getattr(model, 'estimators_', []):
+                try:
+                    if isinstance(est, _RFC):
+                        rf_bt = est
+                        break
+                except Exception:
+                    continue
+
+        importances = None
+        if rf_bt is not None:
+            importances = getattr(rf_bt, 'feature_importances_', None)
+
+        if importances is None:
+            print("No RandomForest feature importances found in stacking model; skipping feature_importances.csv")
+        else:
+            fi = pd.DataFrame({'feature': feature_names, 'importance': importances})
+            fi = fi.sort_values('importance', ascending=False)
+            fi.to_csv(reports_dir / 'feature_importances.csv', index=False)
+
+            plt.figure(figsize=(10, 6))
+            plt.bar(fi['feature'].head(30), fi['importance'].head(30))
+            plt.xticks(rotation=90)
+            plt.title('Top 30 Feature Importances (RF)')
+            plt.tight_layout()
+            plt.savefig(plots_dir / 'feature_importances.png')
+            plt.close()
     except Exception as exc:
         print("Could not extract feature importances:", exc)
 

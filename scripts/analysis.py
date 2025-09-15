@@ -1,3 +1,10 @@
+"""
+Analysis module for RPE image data processing and modeling.
+
+This module provides functions for data cleaning, PCA, model training,
+artifact saving, and visualization of RPE cell features.
+"""
+
 import os
 import json
 from pathlib import Path
@@ -19,6 +26,16 @@ from kneed import KneeLocator
 
 
 def clean_and_prepare(df: pd.DataFrame, config: dict) -> Tuple[pd.DataFrame, Pipeline]:
+    """
+    Clean and prepare the features DataFrame for modeling.
+
+    Args:
+        df: Raw features DataFrame with target column.
+        config: Configuration dictionary.
+
+    Returns:
+        Tuple of (cleaned features, target series), preprocessing pipeline.
+    """
     df = df.copy()
     # support either full config or just analysis_params dict
     if config is None:
@@ -87,6 +104,16 @@ def resolve_output_dirs(base: Path, cfg_path: Optional[Path] = None) -> Tuple[Pa
 
 
 def run_pca(X: pd.DataFrame, config: dict) -> Tuple[PCA, pd.DataFrame]:
+    """
+    Perform PCA on the features.
+
+    Args:
+        X: Cleaned features DataFrame.
+        config: Configuration dictionary.
+
+    Returns:
+        Tuple of PCA object and transformed features DataFrame.
+    """
     n_components = int(config.get('pca_components', min(10, X.shape[1])))
     pca = PCA(n_components=n_components)
     X_p = pca.fit_transform(X)
@@ -95,6 +122,17 @@ def run_pca(X: pd.DataFrame, config: dict) -> Tuple[PCA, pd.DataFrame]:
 
 
 def train_stacking(X: pd.DataFrame, y: pd.Series, config: dict) -> Tuple[object, dict]:
+    """
+    Train a stacking classifier.
+
+    Args:
+        X: Features DataFrame.
+        y: Target series.
+        config: Configuration dictionary.
+
+    Returns:
+        Tuple of trained model and training metrics.
+    """
     rf = RandomForestClassifier(n_estimators=int(config.get('rf_n_estimators', 100)), random_state=42)
     estimators = [('rf', rf)]
     final_est = RandomForestClassifier(n_estimators=int(config.get('final_n_estimators', 200)), random_state=42)
@@ -114,6 +152,15 @@ def train_stacking(X: pd.DataFrame, y: pd.Series, config: dict) -> Tuple[object,
 
 
 def save_artifacts(pipe, pca, model, out_dir: str):
+    """
+    Save preprocessing pipeline, PCA, and model to disk.
+
+    Args:
+        pipe: Preprocessing pipeline.
+        pca: PCA object.
+        model: Trained model.
+        out_dir: Output directory path.
+    """
     # Save preprocessor, pca, and model into a dedicated models directory
     base = Path(__file__).resolve().parent
     out_root, reports_dir, models_dir, plots_dir = resolve_output_dirs(base)
@@ -137,6 +184,13 @@ def save_artifacts(pipe, pca, model, out_dir: str):
 
 
 def plot_pca_scree(explained_variance_ratio: np.ndarray, out_dir: str) -> None:
+    """
+    Plot PCA scree plot with elbow detection.
+
+    Args:
+        explained_variance_ratio: PCA explained variance ratios.
+        out_dir: Output directory path.
+    """
     plt.figure(figsize=(10, 6))
     plt.plot(range(1, len(explained_variance_ratio) + 1), explained_variance_ratio, marker='o', linestyle='--')
     try:
@@ -164,6 +218,13 @@ def plot_pca_scree(explained_variance_ratio: np.ndarray, out_dir: str) -> None:
 
 
 def plot_pca_cumulative(explained_variance_ratio: np.ndarray, out_dir: str) -> None:
+    """
+    Plot cumulative explained variance.
+
+    Args:
+        explained_variance_ratio: PCA explained variance ratios.
+        out_dir: Output directory path.
+    """
     plt.figure(figsize=(10, 6))
     cumulative_variance = np.cumsum(explained_variance_ratio)
     plt.plot(range(1, len(cumulative_variance) + 1), cumulative_variance, marker='.', linestyle='-')

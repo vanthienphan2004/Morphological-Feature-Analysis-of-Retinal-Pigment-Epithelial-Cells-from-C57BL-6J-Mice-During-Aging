@@ -35,8 +35,15 @@ csv_path = Path(cfg.get("paths", {}).get("output_features_csv", reports_dir / "r
 cleaned_csv = reports_dir / "rpe_extracted_features_cleaned.csv"
 prep_joblib = models_dir / "feature_preprocessing_bundle.joblib"
 
-print(f"Loading features from {csv_path}")
-df = pd.read_csv(csv_path)
+try:
+    print(f"Loading features from {csv_path}")
+    df = pd.read_csv(csv_path)
+except FileNotFoundError:
+    print(f"Error: Features CSV not found at {csv_path}")
+    exit(1)
+except Exception as e:
+    print(f"Error loading CSV: {e}")
+    exit(1)
 
 # Replace inf with NaN
 n_inf_before = df.isin([np.inf, -np.inf]).sum().sum()
@@ -81,18 +88,26 @@ if labels is not None:
     features_clean["label"] = labels
 
 # Save cleaned CSV
-features_clean.to_csv(cleaned_csv, index=False)
-print(f"Saved cleaned features to {cleaned_csv}")
+try:
+    features_clean.to_csv(cleaned_csv, index=False)
+    print(f"Saved cleaned features to {cleaned_csv}")
+except Exception as e:
+    print(f"Error saving cleaned CSV: {e}")
+    exit(1)
 
 # Save preprocessing bundle
-bundle = {
-    "imputer": imputer,
-    "scaler": scaler,
-    "dropped_columns": cols_to_drop,
-    "feature_columns": features_df.columns.tolist(),
-}
-joblib.dump(bundle, prep_joblib)
-print(f"Saved preprocessing bundle to {prep_joblib}")
+try:
+    bundle = {
+        "imputer": imputer,
+        "scaler": scaler,
+        "dropped_columns": cols_to_drop,
+        "feature_columns": features_df.columns.tolist(),
+    }
+    joblib.dump(bundle, prep_joblib)
+    print(f"Saved preprocessing bundle to {prep_joblib}")
+except Exception as e:
+    print(f"Error saving preprocessing bundle: {e}")
+    exit(1)
 
 # Summary
 n_inf_after = features_clean.isin([np.inf, -np.inf]).sum().sum()

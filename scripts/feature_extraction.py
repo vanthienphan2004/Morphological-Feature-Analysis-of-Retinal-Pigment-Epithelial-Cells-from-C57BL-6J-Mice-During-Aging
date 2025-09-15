@@ -1,3 +1,11 @@
+"""
+Feature extraction module for RPE image analysis.
+
+This module provides functions to extract morphological and texture features
+from retinal pigment epithelial (RPE) cell images, including intensity statistics,
+shape properties, texture features (LBP, GLCM, Gabor), and nuclear features.
+"""
+
 import json
 from typing import Any, Dict, List
 import numpy as np
@@ -11,6 +19,15 @@ from scipy.stats import kurtosis, skew
 
 
 def _compute_intensity_statistics(image: np.ndarray) -> List[float]:
+    """
+    Compute basic intensity statistics for a grayscale image.
+
+    Args:
+        image: Grayscale image as numpy array.
+
+    Returns:
+        List of [mean, std, skewness, kurtosis].
+    """
     mean = np.mean(image)
     std = np.std(image)
     skewness = skew(image.flatten(), nan_policy='omit')
@@ -19,6 +36,17 @@ def _compute_intensity_statistics(image: np.ndarray) -> List[float]:
 
 
 def _compute_lbp_features(image: np.ndarray, P: int = 8, R: float = 1) -> List[float]:
+    """
+    Compute Local Binary Pattern (LBP) histogram features.
+
+    Args:
+        image: Grayscale image.
+        P: Number of points for LBP.
+        R: Radius for LBP.
+
+    Returns:
+        Normalized histogram of LBP values.
+    """
     lbp = local_binary_pattern(image, P, R, method='uniform')
     n_bins = int(lbp.max() + 1)
     hist, _ = np.histogram(lbp.ravel(), bins=n_bins, range=(0, n_bins))
@@ -26,6 +54,15 @@ def _compute_lbp_features(image: np.ndarray, P: int = 8, R: float = 1) -> List[f
 
 
 def _flatten_features(features_dict: Dict[str, Any]) -> Dict[str, float]:
+    """
+    Flatten a nested features dictionary into a flat dict with string keys.
+
+    Args:
+        features_dict: Dictionary with potentially nested lists/arrays.
+
+    Returns:
+        Flattened dictionary with aggregated statistics for lists.
+    """
     flat: Dict[str, float] = {}
     BIN_THRESHOLD = 20
     for key, val in features_dict.items():
@@ -62,7 +99,69 @@ def _flatten_features(features_dict: Dict[str, Any]) -> Dict[str, float]:
     return flat
 
 
-def extract_rpe_features(image_path: str, cfg_fp: dict, verbose: bool = True) -> Dict[str, Any]:
+def agg(prefix: str, arr) -> Dict[str, Any]:
+    """Aggregate a list/array of numeric values into summary statistics.
+
+    Returns count, mean, median, std, min, max. Handles empty inputs safely.
+    """
+    arr = np.array(arr, dtype=float)
+    if arr.size == 0:
+        return {
+            f"{prefix}_count": 0,
+            f"{prefix}_mean": 0.0,
+            f"{prefix}_median": 0.0,
+            f"{prefix}_std": 0.0,
+            f"{prefix}_min": 0.0,
+            f"{prefix}_max": 0.0,
+        }
+    return {
+        f"{prefix}_count": int(arr.size),
+        f"{prefix}_mean": float(np.mean(arr)),
+        f"{prefix}_median": float(np.median(arr)),
+        f"{prefix}_std": float(np.std(arr)),
+        f"{prefix}_min": float(np.min(arr)),
+        f"{prefix}_max": float(np.max(arr)),
+    }
+
+
+def agg_nanaware(prefix: str, arr) -> Dict[str, Any]:
+    """Aggregate numeric values while ignoring NaNs. Returns same keys as `agg`.
+
+    If all entries are NaN or there are no valid values, returns zeros and count 0.
+    """
+    arr = np.array(arr, dtype=float)
+    valid = arr[~np.isnan(arr)]
+    if valid.size == 0:
+        return {
+            f"{prefix}_count": 0,
+            f"{prefix}_mean": 0.0,
+            f"{prefix}_median": 0.0,
+            f"{prefix}_std": 0.0,
+            f"{prefix}_min": 0.0,
+            f"{prefix}_max": 0.0,
+        }
+    return {
+        f"{prefix}_count": int(valid.size),
+        f"{prefix}_mean": float(np.mean(valid)),
+        f"{prefix}_median": float(np.median(valid)),
+        f"{prefix}_std": float(np.std(valid)),
+        f"{prefix}_min": float(np.min(valid)),
+        f"{prefix}_max": float(np.max(valid)),
+    }
+
+
+def extract_rpe_features(image_path: str, config_params: dict, verbose: bool = True) -> Dict[str, Any]:
+    """
+    Extract features from a single RPE image.
+
+    Args:
+        image_path: Path to the image file.
+        cfg_fp: Configuration parameters for feature extraction.
+        verbose: Whether to print warnings.
+
+    Returns:
+        Dictionary of extracted features.
+    """
     try:
         with Image.open(image_path).convert('RGB') as img:
             image_np = np.array(img, dtype=np.uint8)
@@ -75,16 +174,16 @@ def extract_rpe_features(image_path: str, cfg_fp: dict, verbose: bool = True) ->
     green_channel = image_np[:, :, 1].astype(float)
     gray = np.mean(image_np, axis=2).astype(np.uint8)
 
-    lbp_points = int(cfg_fp.get("lbp_points", 8))
-    lbp_radius = float(cfg_fp.get("lbp_radius", 1))
-    green_thresh = float(cfg_fp.get("green_channel_threshold", 0.2))
-    red_thresh = float(cfg_fp.get("red_channel_threshold", 0.3))
+    lbp_points = int(config_params.get("lbp_points", 8))
+    lbp_radius = float(config_params.get("lbp_radius", 1))
+    green_thresh = float(config_params.get("green_channel_threshold", 0.2))
+    red_thresh = float(config_params.get("red_channel_threshold", 0.3))
 
     red_norm = red_channel / 255.0
     green_norm = green_channel / 255.0
 
     try:
-        if cfg_fp.get("use_otsu", True):
+        if config_params.get("use_otsu", True):
             g_thresh = threshold_otsu(green_channel)
             green_binary = (green_channel > g_thresh).astype(np.uint8)
         else:
@@ -93,7 +192,7 @@ def extract_rpe_features(image_path: str, cfg_fp: dict, verbose: bool = True) ->
         green_binary = (green_norm > green_thresh).astype(np.uint8)
 
     try:
-        if cfg_fp.get("use_otsu", True):
+        if config_params.get("use_otsu", True):
             r_thresh = threshold_otsu(red_channel)
             red_binary = (red_channel > r_thresh).astype(np.uint8)
         else:
@@ -125,16 +224,113 @@ def extract_rpe_features(image_path: str, cfg_fp: dict, verbose: bool = True) ->
     eccentricities = [p.eccentricity for p in props if p.eccentricity is not None] if props else [0]
     solidities = [p.solidity for p in props if p.solidity is not None] if props else [0]
 
-    def agg(prefix, arr):
-        arr = np.array(arr, dtype=float)
-        return {
-            f"{prefix}_count": int(len(arr)),
-            f"{prefix}_mean": float(np.mean(arr)),
-            f"{prefix}_median": float(np.median(arr)),
-            f"{prefix}_std": float(np.std(arr)),
-            f"{prefix}_min": float(np.min(arr)),
-            f"{prefix}_max": float(np.max(arr)),
-        }
+    # Optional nuclear feature extraction (red channel) mapped to green-segmented cells
+    # Controlled by config_params['extract_nuclear_features'] (defaults to False)
+    if config_params.get("extract_nuclear_features", True):
+        # Prepare lists to collect per-cell nuclear metrics
+        nucleus_areas = []
+        nucleus_perimeters = []
+        nucleus_solidities = []
+        nucleus_major_axes = []
+        nucleus_minor_axes = []
+        nucleus_circularity = []
+        nc_ratios = []
+
+        # Ensure red_binary is available and is binary (0/1)
+        red_mask = (red_binary > 0).astype(np.uint8)
+
+        # Iterate through each cell region and search for a nucleus within its bbox
+        for p in props:
+            # p.image is a boolean mask for the region within the bounding box
+            minr, minc, maxr, maxc = p.bbox
+            # Crop the red mask to the cell bounding box
+            try:
+                red_crop = red_mask[minr:maxr, minc:maxc]
+            except Exception:
+                # In case bbox is invalid, append zeros and continue
+                nucleus_areas.append(0.0)
+                nucleus_perimeters.append(0.0)
+                nucleus_solidities.append(0.0)
+                nucleus_major_axes.append(0.0)
+                nucleus_minor_axes.append(0.0)
+                nucleus_circularity.append(0.0)
+                nc_ratios.append(0.0)
+                continue
+
+            # Restrict to inside the cell mask to avoid nuclei outside parent cell
+            cell_mask = p.image.astype(np.uint8)
+            # Align shapes: p.image has same shape as bbox region
+            if cell_mask.shape != red_crop.shape:
+                # If shapes don't match, try to pad or crop conservatively
+                min_h = min(cell_mask.shape[0], red_crop.shape[0])
+                min_w = min(cell_mask.shape[1], red_crop.shape[1])
+                cell_mask = cell_mask[:min_h, :min_w]
+                red_crop = red_crop[:min_h, :min_w]
+
+            # Nucleus candidates inside the cell are where red_crop AND cell_mask are True
+            nucleus_candidates = (red_crop & cell_mask).astype(np.uint8)
+
+            # Label nucleus candidates within this cell bbox and pick the largest connected component (if any)
+            n_lbl = measure.label(nucleus_candidates)
+            n_props = measure.regionprops(n_lbl)
+
+            if not n_props:
+                # No nucleus found for this cell
+                nucleus_areas.append(0.0)
+                nucleus_perimeters.append(0.0)
+                nucleus_solidities.append(0.0)
+                nucleus_major_axes.append(0.0)
+                nucleus_minor_axes.append(0.0)
+                nucleus_circularity.append(0.0)
+                nc_ratios.append(0.0)
+                continue
+
+            # Choose the largest nucleus by area within the cell
+            n_props_sorted = sorted(n_props, key=lambda x: x.area, reverse=True)
+            n = n_props_sorted[0]
+
+            n_area = float(n.area)
+            n_perim = float(n.perimeter) if getattr(n, 'perimeter', None) is not None else 0.0
+            n_sol = float(n.solidity) if getattr(n, 'solidity', None) is not None else 0.0
+            n_maj = float(n.major_axis_length) if getattr(n, 'major_axis_length', None) is not None else 0.0
+            n_min = float(n.minor_axis_length) if getattr(n, 'minor_axis_length', None) is not None else 0.0
+
+            # Circularity: 4*pi*area / perimeter^2 (guard against zero perimeter)
+            if n_perim and n_perim > 0:
+                n_circ = (4.0 * np.pi * n_area) / (n_perim * n_perim)
+            else:
+                n_circ = 0.0
+
+            # N/C ratio: nucleus_area / (cell_area - nucleus_area) with division-by-zero guard
+            cell_area = float(p.area)
+            cytoplasm_area = max(cell_area - n_area, 0.0)
+            if cytoplasm_area > 0:
+                nc_ratio = n_area / cytoplasm_area
+            else:
+                # If cytoplasm area is zero or negative, fall back to NaN to indicate invalid
+                nc_ratio = float('nan')
+
+            nucleus_areas.append(n_area)
+            nucleus_perimeters.append(n_perim)
+            nucleus_solidities.append(n_sol)
+            nucleus_major_axes.append(n_maj)
+            nucleus_minor_axes.append(n_min)
+            nucleus_circularity.append(n_circ)
+            nc_ratios.append(nc_ratio)
+
+        # Aggregate nuclear metrics using existing agg helper
+        features.update(agg("nucleus_area", nucleus_areas))
+        features.update(agg("nucleus_perimeter", nucleus_perimeters))
+        features.update(agg("nucleus_major_axis", nucleus_major_axes))
+        features.update(agg("nucleus_minor_axis", nucleus_minor_axes))
+        features.update(agg("nucleus_circularity", nucleus_circularity))
+        features.update(agg("nucleus_solidity", nucleus_solidities))
+        # For N/C ratios, replace NaN with a large sentinel for aggregation guard, then restore NaN handling
+        nc_arr = np.array([float(x) if not (isinstance(x, float) and np.isnan(x)) else np.nan for x in nc_ratios], dtype=float)
+        # When computing statistics, np.nanmean / np.nanstd can be used; use the
+        # module-level nan-aware aggregator for N/C ratios and the standard
+        # aggregator for numeric lists.
+        features.update(agg_nanaware("nc_ratio", nc_arr))
 
     features.update(agg("area", areas))
     features.update(agg("perimeter", perimeters))
@@ -171,7 +367,7 @@ def extract_rpe_features(image_path: str, cfg_fp: dict, verbose: bool = True) ->
         features[f"lbp_{i}"] = float(v)
 
     try:
-        levels = int(cfg_fp.get("glcm_levels", 64))
+        levels = int(config_params.get("glcm_levels", 64))
         gray_reduced = (gray / (256 // max(1, levels))).astype(np.uint8)
         distances = [1]
         angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
@@ -191,8 +387,8 @@ def extract_rpe_features(image_path: str, cfg_fp: dict, verbose: bool = True) ->
             features[f"glcm_{pn}_std"] = 0.0
 
     try:
-        gab_freqs = cfg_fp.get("gabor_frequencies", [0.1, 0.2])
-        gab_angles = cfg_fp.get("gabor_angles", [0, np.pi/4, np.pi/2])
+        gab_freqs = config_params.get("gabor_frequencies", [0.1, 0.2])
+        gab_angles = config_params.get("gabor_angles", [0, np.pi/4, np.pi/2])
         for freq in gab_freqs:
             for ang in gab_angles:
                 try:
@@ -220,22 +416,33 @@ def extract_rpe_features(image_path: str, cfg_fp: dict, verbose: bool = True) ->
 
 
 def extract_features_from_directory(directory_path: str, config: dict, verbose: bool = False) -> pd.DataFrame:
+    """
+    Extract features from all images in a directory.
+
+    Args:
+        directory_path: Path to the directory containing image folders.
+        config: Configuration dictionary.
+        verbose: Whether to enable verbose output.
+
+    Returns:
+        DataFrame with extracted features and labels.
+    """
     features_list = []
     labels = []
-    import os
-    cfg_fp = config.get('feature_params', {})
+    from pathlib import Path
+    config_params = config.get('feature_params', {})
     # collect all image paths first so we can show total progress
     image_paths = []
-    for foldername in os.listdir(directory_path):
-        folder_path = os.path.join(directory_path, foldername)
-        if os.path.isdir(folder_path):
-            for filename in os.listdir(folder_path):
-                if filename.lower().endswith(('.tif', '.tiff')):
-                    image_paths.append((foldername, os.path.join(folder_path, filename)))
+    dir_path = Path(directory_path)
+    for foldername in dir_path.iterdir():
+        if foldername.is_dir():
+            for filename in foldername.iterdir():
+                if filename.suffix.lower() in ('.tif', '.tiff'):
+                    image_paths.append((foldername.name, str(filename)))
 
     disable_bar = not bool(verbose)
     for foldername, image_path in tqdm(image_paths, desc="Extracting features", unit="img", disable=disable_bar):
-        features = extract_rpe_features(image_path, cfg_fp, verbose=verbose)
+        features = extract_rpe_features(image_path, config_params, verbose=verbose)
         features_list.append(features)
         labels.append(foldername)
 
