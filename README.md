@@ -45,7 +45,7 @@ pip install -r requirements.txt
 py -3 -u .\main.py -c .\config.json -v
 ```
 
-Outputs are written to the `output_directory` configured in `config.json` (organized into `reports/`, `models/`, and `plots/` subfolders).
+This will extract features, clean and preprocess them automatically, perform PCA, train the model, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
 
 ## Configuration
 
@@ -66,12 +66,11 @@ Modify these values to tune extraction and modeling without editing code.
 
 - `main.py` — single entrypoint. Orchestrates extraction → cleaning → PCA →
   training → export. Implements a Singleton pipeline manager and contains
-  modular functions for feature extraction and plotting.
+  modular functions for feature extraction and plotting. Cleaning is now
+  integrated and runs automatically, saving cleaned features and preprocessing
+  bundle.
 - `config.json` — runtime configuration (paths, feature params, analysis params).
 - `requirements.txt` — Python dependencies used by the project.
-- `scripts/clean_features.py` — utility to clean an existing features CSV (replace
-  infs, drop high-NaN columns, median impute, scale) and save a preprocessing
-  bundle.
   Note: To run predictions you can load the saved model bundle and preprocessing objects directly from the `models/` folder. Example PowerShell snippet:
 
 ```powershell
@@ -109,8 +108,8 @@ If you need the original helper scripts (for compatibility), they are archived i
 ## Outputs (default location: `analysis_results/`, organized into `reports/`, `models/`, and `plots/`)
 
 - `rpe_extracted_features.csv` — raw extracted features (one row per image).
-- `rpe_extracted_features_cleaned.csv` — cleaned + scaled features (if cleaning
-  step is run).
+- `rpe_extracted_features_cleaned.csv` — cleaned + scaled features (generated
+  automatically in the pipeline).
 - `pca_scree_plot.png`, `pca_cumulative_plot.png`, `pca_scatter_plot.png` — PCA
   visualizations.
 - `confusion_matrix.png` — confusion matrix for the classifier predictions.
@@ -123,12 +122,12 @@ If you need the original helper scripts (for compatibility), they are archived i
 ## Recent important fixes (what changed)
 
 - **Code Quality Improvements**: The entire codebase has been refactored for PEP 8 compliance, including snake_case variable naming, comprehensive docstrings, type hints, and modern Python idioms (f-strings, pathlib). Error handling has been enhanced with try-except blocks for file I/O and other risky operations.
+- **Integrated Cleaning**: The cleaning functionality from `clean_features.py` has been merged into the main pipeline in `analysis.py`. Cleaning now runs automatically after feature extraction, saving the cleaned CSV and preprocessing bundle without needing a separate step.
 - Gabor feature stability: Gabor responses now use numerically stable
   hypot-based magnitude and nan-safe aggregations to avoid inf/overflow values.
 - Robust preprocessing: pipeline replaces inf with NaN, drops columns with
   > `max_nan_fraction` NaNs, imputes remaining NaNs with median, and scales
   > features before PCA/training.
-  >
 - Model bundle saved with preprocessing objects so downstream predictions are
   reproducible without re-training.
 
