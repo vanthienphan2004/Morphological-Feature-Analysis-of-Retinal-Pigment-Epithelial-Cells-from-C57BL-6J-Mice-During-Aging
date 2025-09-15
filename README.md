@@ -5,6 +5,9 @@ analyzing features from Retinal Pigment Epithelium (RPE) image crops. The
 pipeline produces cleaned feature tables, PCA visualizations, supervised
 classification (stacking ensemble), and reproducible model artifacts.
 
+The codebase is written in clean, maintainable Python following PEP 8 standards,
+with comprehensive docstrings, type hints, and robust error handling.
+
 This README gives a concise project overview, installation and usage
 instructions, configuration notes, and a quick reference for the included
 scripts and outputs.
@@ -121,12 +124,12 @@ If you need the original helper scripts (for compatibility), they are archived i
 
 ## Recent important fixes (what changed)
 
+- **Code Quality Improvements**: The entire codebase has been refactored for PEP 8 compliance, including snake_case variable naming, comprehensive docstrings, type hints, and modern Python idioms (f-strings, pathlib). Error handling has been enhanced with try-except blocks for file I/O and other risky operations.
 - Gabor feature stability: Gabor responses now use numerically stable
   hypot-based magnitude and nan-safe aggregations to avoid inf/overflow values.
 - Robust preprocessing: pipeline replaces inf with NaN, drops columns with
   > `max_nan_fraction` NaNs, imputes remaining NaNs with median, and scales
   > features before PCA/training.
-  >
 - Model bundle saved with preprocessing objects so downstream predictions are
   reproducible without re-training.
 
@@ -138,6 +141,7 @@ In short: load `models/stacking_model_bundle.joblib` with `joblib.load`, read `r
 
 ## Troubleshooting & tips
 
+- The code now includes enhanced error handling for file I/O, image processing, and data operations, providing clear error messages for debugging.
 - If the pipeline errors opening TIFFs, confirm `paths.image_directory` points
   to the correct folder and that files are readable.
 - If many columns are dropped, lower `analysis_params.max_nan_fraction` or
