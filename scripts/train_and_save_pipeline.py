@@ -13,9 +13,8 @@ Usage:
 """
 import argparse
 import json
-import os
 from pathlib import Path
-
+from typing import Dict, List, Optional, Tuple, Any
 import joblib
 import matplotlib
 matplotlib.use('Agg')
@@ -30,7 +29,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 
 
-def build_estimators(random_state=42, rf_params=None):
+def build_estimators(random_state: int = 42, rf_params: Optional[Dict[str, Any]] = None) -> Tuple[RandomForestClassifier, Tuple[str, Any]]:
     rf_params = rf_params or {}
     rf = RandomForestClassifier(random_state=random_state, **rf_params)
     try:
@@ -43,7 +42,7 @@ def build_estimators(random_state=42, rf_params=None):
     return rf, (gb_name, gb)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--features", help="Path to extracted features CSV")
     parser.add_argument("--outdir", help="Output directory to write pipeline and reports")
@@ -63,17 +62,24 @@ def main():
     if not features_path.exists():
         raise SystemExit(f"Features CSV not found: {features_path}")
 
-    df = pd.read_csv(features_path)
-    if 'label' not in df.columns:
+    try:
+        features_df = pd.read_csv(features_path)
+    except Exception as e:
+        raise SystemExit(f'Error loading features CSV: {e}')
+        
+    if 'label' not in features_df.columns:
         raise SystemExit("Features CSV must contain a 'label' column")
 
-    X = df.drop(columns=['label']).copy()
-    y = df['label'].copy()
+    features_matrix = features_df.drop(columns=['label']).copy()
+    labels = features_df['label'].copy()
 
     # Save feature names/order for future checks (reports)
-    feature_names = list(X.columns)
-    with open(reports_dir / 'feature_names.json', 'w') as fh:
-        json.dump(feature_names, fh, indent=2)
+    feature_names = list(features_matrix.columns)
+    try:
+        with open(reports_dir / 'feature_names.json', 'w') as fh:
+            json.dump(feature_names, fh, indent=2)
+    except Exception as e:
+        print(f'Warning: Could not save feature names: {e}')
 
     rf, gb_pair = build_estimators(random_state=args.random_state, rf_params=None)
     estimators = [('rf', rf), gb_pair]
@@ -88,18 +94,18 @@ def main():
     print("Starting cross-validated predictions (this may take a bit)...")
     skf = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=args.random_state)
     try:
-        y_pred = cross_val_predict(pipeline, X, y, cv=skf, n_jobs=-1)
+        predictions = cross_val_predict(pipeline, features_matrix, labels, cv=skf, n_jobs=-1)
     except Exception as exc:
         print("cross_val_predict failed, falling back to single-fit predict. Error:", exc)
-        pipeline.fit(X, y)
-        y_pred = pipeline.predict(X)
+        pipeline.fit(features_matrix, labels)
+        predictions = pipeline.predict(features_matrix)
 
-    report = classification_report(y, y_pred, output_dict=True)
+    report = classification_report(labels, predictions, output_dict=True)
     print("Classification report (CV):")
-    print(classification_report(y, y_pred))
+    print(classification_report(labels, predictions))
 
     # confusion matrix
-    cm = confusion_matrix(y, y_pred)
+    cm = confusion_matrix(labels, predictions)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
     plt.figure(figsize=(8, 6))
     disp.plot(values_format='d', cmap='Blues')
@@ -109,13 +115,19 @@ def main():
 
     # Fit pipeline on full data and save
     print("Fitting final pipeline on full data...")
-    pipeline.fit(X, y)
-    joblib.dump(pipeline, models_dir / 'pipeline.joblib')
-    print(f"Saved pipeline to {models_dir / 'pipeline.joblib'}")
+    pipeline.fit(features_matrix, labels)
+    try:
+        joblib.dump(pipeline, models_dir / 'pipeline.joblib')
+        print(f"Saved pipeline to {models_dir / 'pipeline.joblib'}")
+    except Exception as e:
+        raise SystemExit(f'Error saving pipeline: {e}')
 
     # Save classification report
-    with open(reports_dir / 'classification_report_cv.json', 'w') as fh:
-        json.dump(report, fh, indent=2)
+    try:
+        with open(reports_dir / 'classification_report_cv.json', 'w') as fh:
+            json.dump(report, fh, indent=2)
+    except Exception as e:
+        print(f'Warning: Could not save classification report: {e}')
 
     # Feature importances from RF base learner in stacking (if present)
     try:

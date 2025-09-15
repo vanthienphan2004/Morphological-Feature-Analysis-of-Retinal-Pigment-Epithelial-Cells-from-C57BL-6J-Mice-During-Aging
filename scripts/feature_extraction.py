@@ -28,29 +28,34 @@ def _compute_intensity_statistics(image: np.ndarray) -> List[float]:
     Returns:
         List of [mean, std, skewness, kurtosis].
     """
-    mean = np.mean(image)
-    std = np.std(image)
-    skewness = skew(image.flatten(), nan_policy='omit')
-    kurt = kurtosis(image.flatten(), nan_policy='omit')
-    return [mean, std, skewness if not np.isnan(skewness) else 0, kurt if not np.isnan(kurt) else 0]
+    mean_value = np.mean(image)
+    std_value = np.std(image)
+    skewness_value = skew(image.flatten(), nan_policy='omit')
+    kurtosis_value = kurtosis(image.flatten(), nan_policy='omit')
+    return [
+        mean_value,
+        std_value,
+        skewness_value if not np.isnan(skewness_value) else 0.0,
+        kurtosis_value if not np.isnan(kurtosis_value) else 0.0
+    ]
 
 
-def _compute_lbp_features(image: np.ndarray, P: int = 8, R: float = 1) -> List[float]:
+def _compute_lbp_features(image: np.ndarray, points: int = 8, radius: float = 1.0) -> List[float]:
     """
     Compute Local Binary Pattern (LBP) histogram features.
 
     Args:
         image: Grayscale image.
-        P: Number of points for LBP.
-        R: Radius for LBP.
+        points: Number of points for LBP.
+        radius: Radius for LBP.
 
     Returns:
         Normalized histogram of LBP values.
     """
-    lbp = local_binary_pattern(image, P, R, method='uniform')
-    n_bins = int(lbp.max() + 1)
-    hist, _ = np.histogram(lbp.ravel(), bins=n_bins, range=(0, n_bins))
-    return (hist / (hist.sum() + 1e-6)).tolist()
+    lbp_image = local_binary_pattern(image, points, radius, method='uniform')
+    num_bins = int(lbp_image.max() + 1)
+    histogram, _ = np.histogram(lbp_image.ravel(), bins=num_bins, range=(0, num_bins))
+    return (histogram / (histogram.sum() + 1e-6)).tolist()
 
 
 def _flatten_features(features_dict: Dict[str, Any]) -> Dict[str, float]:
@@ -63,49 +68,55 @@ def _flatten_features(features_dict: Dict[str, Any]) -> Dict[str, float]:
     Returns:
         Flattened dictionary with aggregated statistics for lists.
     """
-    flat: Dict[str, float] = {}
+    flattened_features: Dict[str, float] = {}
     BIN_THRESHOLD = 20
-    for key, val in features_dict.items():
-        if isinstance(val, list):
+    for key, value in features_dict.items():
+        if isinstance(value, list):
             try:
-                arr = np.array(val, dtype=float)
+                array = np.array(value, dtype=float)
             except Exception:
-                flat[f"{key}_count"] = float(len(val))
+                flattened_features[f"{key}_count"] = float(len(value))
                 continue
 
-            if arr.size == 0:
-                flat[f"{key}_count"] = 0.0
-                flat[f"{key}_mean"] = 0.0
-                flat[f"{key}_median"] = 0.0
-                flat[f"{key}_std"] = 0.0
-                flat[f"{key}_min"] = 0.0
-                flat[f"{key}_max"] = 0.0
-            elif arr.size <= BIN_THRESHOLD:
-                for i, item in enumerate(arr.tolist()):
-                    flat[f"{key}_{i}"] = float(item)
+            if array.size == 0:
+                flattened_features[f"{key}_count"] = 0.0
+                flattened_features[f"{key}_mean"] = 0.0
+                flattened_features[f"{key}_median"] = 0.0
+                flattened_features[f"{key}_std"] = 0.0
+                flattened_features[f"{key}_min"] = 0.0
+                flattened_features[f"{key}_max"] = 0.0
+            elif array.size <= BIN_THRESHOLD:
+                for i, item in enumerate(array.tolist()):
+                    flattened_features[f"{key}_{i}"] = float(item)
             else:
-                flat[f"{key}_count"] = float(arr.size)
-                flat[f"{key}_mean"] = float(np.mean(arr))
-                flat[f"{key}_median"] = float(np.median(arr))
-                flat[f"{key}_std"] = float(np.std(arr))
-                flat[f"{key}_min"] = float(np.min(arr))
-                flat[f"{key}_max"] = float(np.max(arr))
+                flattened_features[f"{key}_count"] = float(array.size)
+                flattened_features[f"{key}_mean"] = float(np.mean(array))
+                flattened_features[f"{key}_median"] = float(np.median(array))
+                flattened_features[f"{key}_std"] = float(np.std(array))
+                flattened_features[f"{key}_min"] = float(np.min(array))
+                flattened_features[f"{key}_max"] = float(np.max(array))
         else:
-            if isinstance(val, (int, float, np.floating, np.integer)):
-                flat[key] = float(val)
+            if isinstance(value, (int, float, np.floating, np.integer)):
+                flattened_features[key] = float(value)
             else:
-                flat[key] = val
+                flattened_features[key] = value
 
-    return flat
+    return flattened_features
 
 
-def agg(prefix: str, arr) -> Dict[str, Any]:
-    """Aggregate a list/array of numeric values into summary statistics.
-
-    Returns count, mean, median, std, min, max. Handles empty inputs safely.
+def _aggregate_statistics(prefix: str, values) -> Dict[str, Any]:
     """
-    arr = np.array(arr, dtype=float)
-    if arr.size == 0:
+    Aggregate a list/array of numeric values into summary statistics.
+
+    Args:
+        prefix: Prefix for the statistic keys.
+        values: List or array of numeric values.
+
+    Returns:
+        Dictionary with count, mean, median, std, min, max.
+    """
+    array = np.array(values, dtype=float)
+    if array.size == 0:
         return {
             f"{prefix}_count": 0,
             f"{prefix}_mean": 0.0,
@@ -115,23 +126,29 @@ def agg(prefix: str, arr) -> Dict[str, Any]:
             f"{prefix}_max": 0.0,
         }
     return {
-        f"{prefix}_count": int(arr.size),
-        f"{prefix}_mean": float(np.mean(arr)),
-        f"{prefix}_median": float(np.median(arr)),
-        f"{prefix}_std": float(np.std(arr)),
-        f"{prefix}_min": float(np.min(arr)),
-        f"{prefix}_max": float(np.max(arr)),
+        f"{prefix}_count": int(array.size),
+        f"{prefix}_mean": float(np.mean(array)),
+        f"{prefix}_median": float(np.median(array)),
+        f"{prefix}_std": float(np.std(array)),
+        f"{prefix}_min": float(np.min(array)),
+        f"{prefix}_max": float(np.max(array)),
     }
 
 
-def agg_nanaware(prefix: str, arr) -> Dict[str, Any]:
-    """Aggregate numeric values while ignoring NaNs. Returns same keys as `agg`.
-
-    If all entries are NaN or there are no valid values, returns zeros and count 0.
+def _aggregate_nanaware(prefix: str, values) -> Dict[str, Any]:
     """
-    arr = np.array(arr, dtype=float)
-    valid = arr[~np.isnan(arr)]
-    if valid.size == 0:
+    Aggregate numeric values while ignoring NaNs.
+
+    Args:
+        prefix: Prefix for the statistic keys.
+        values: List or array of numeric values (may contain NaN).
+
+    Returns:
+        Dictionary with count, mean, median, std, min, max for valid values.
+    """
+    array = np.array(values, dtype=float)
+    valid_values = array[~np.isnan(array)]
+    if valid_values.size == 0:
         return {
             f"{prefix}_count": 0,
             f"{prefix}_mean": 0.0,
@@ -141,22 +158,22 @@ def agg_nanaware(prefix: str, arr) -> Dict[str, Any]:
             f"{prefix}_max": 0.0,
         }
     return {
-        f"{prefix}_count": int(valid.size),
-        f"{prefix}_mean": float(np.mean(valid)),
-        f"{prefix}_median": float(np.median(valid)),
-        f"{prefix}_std": float(np.std(valid)),
-        f"{prefix}_min": float(np.min(valid)),
-        f"{prefix}_max": float(np.max(valid)),
+        f"{prefix}_count": int(valid_values.size),
+        f"{prefix}_mean": float(np.mean(valid_values)),
+        f"{prefix}_median": float(np.median(valid_values)),
+        f"{prefix}_std": float(np.std(valid_values)),
+        f"{prefix}_min": float(np.min(valid_values)),
+        f"{prefix}_max": float(np.max(valid_values)),
     }
 
 
-def extract_rpe_features(image_path: str, config_params: dict, verbose: bool = True) -> Dict[str, Any]:
+def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose: bool = True) -> Dict[str, Any]:
     """
-    Extract features from a single RPE image.
+    Extract morphological and texture features from a single RPE image.
 
     Args:
         image_path: Path to the image file.
-        cfg_fp: Configuration parameters for feature extraction.
+        config_params: Configuration parameters for feature extraction.
         verbose: Whether to print warnings.
 
     Returns:
@@ -164,65 +181,65 @@ def extract_rpe_features(image_path: str, config_params: dict, verbose: bool = T
     """
     try:
         with Image.open(image_path).convert('RGB') as img:
-            image_np = np.array(img, dtype=np.uint8)
-    except IOError:
+            image_array = np.array(img, dtype=np.uint8)
+    except IOError as exc:
         if verbose:
-            print(f"Warning: Could not open image file {image_path}. Skipping.")
+            print(f"Warning: Could not open image file {image_path}. Error: {exc}")
         return {}
 
-    red_channel = image_np[:, :, 0].astype(float)
-    green_channel = image_np[:, :, 1].astype(float)
-    gray = np.mean(image_np, axis=2).astype(np.uint8)
+    red_channel = image_array[:, :, 0].astype(float)
+    green_channel = image_array[:, :, 1].astype(float)
+    grayscale_image = np.mean(image_array, axis=2).astype(np.uint8)
 
     lbp_points = int(config_params.get("lbp_points", 8))
-    lbp_radius = float(config_params.get("lbp_radius", 1))
-    green_thresh = float(config_params.get("green_channel_threshold", 0.2))
-    red_thresh = float(config_params.get("red_channel_threshold", 0.3))
+    lbp_radius = float(config_params.get("lbp_radius", 1.0))
+    green_threshold = float(config_params.get("green_channel_threshold", 0.2))
+    red_threshold = float(config_params.get("red_channel_threshold", 0.3))
 
-    red_norm = red_channel / 255.0
-    green_norm = green_channel / 255.0
-
-    try:
-        if config_params.get("use_otsu", True):
-            g_thresh = threshold_otsu(green_channel)
-            green_binary = (green_channel > g_thresh).astype(np.uint8)
-        else:
-            green_binary = (green_norm > green_thresh).astype(np.uint8)
-    except Exception:
-        green_binary = (green_norm > green_thresh).astype(np.uint8)
+    red_normalized = red_channel / 255.0
+    green_normalized = green_channel / 255.0
 
     try:
         if config_params.get("use_otsu", True):
-            r_thresh = threshold_otsu(red_channel)
-            red_binary = (red_channel > r_thresh).astype(np.uint8)
+            green_threshold_otsu = threshold_otsu(green_channel)
+            green_binary = (green_channel > green_threshold_otsu).astype(np.uint8)
         else:
-            red_binary = (red_norm > red_thresh).astype(np.uint8)
+            green_binary = (green_normalized > green_threshold).astype(np.uint8)
     except Exception:
-        red_binary = (red_norm > red_thresh).astype(np.uint8)
+        green_binary = (green_normalized > green_threshold).astype(np.uint8)
+
+    try:
+        if config_params.get("use_otsu", True):
+            red_threshold_otsu = threshold_otsu(red_channel)
+            red_binary = (red_channel > red_threshold_otsu).astype(np.uint8)
+        else:
+            red_binary = (red_normalized > red_threshold).astype(np.uint8)
+    except Exception:
+        red_binary = (red_normalized > red_threshold).astype(np.uint8)
 
     features: Dict[str, Any] = {}
 
-    mean, std, skewness, kurt = _compute_intensity_statistics(gray)
+    mean_intensity, std_intensity, skewness_intensity, kurtosis_intensity = _compute_intensity_statistics(grayscale_image)
     features.update({
-        "intensity_mean": mean,
-        "intensity_std": std,
-        "intensity_skew": skewness,
-        "intensity_kurtosis": kurt,
+        "intensity_mean": mean_intensity,
+        "intensity_std": std_intensity,
+        "intensity_skew": skewness_intensity,
+        "intensity_kurtosis": kurtosis_intensity,
     })
 
-    labeled = measure.label(green_binary)
-    props = measure.regionprops(labeled)
-    n_cells = len(props)
-    img_area = gray.shape[0] * gray.shape[1]
+    labeled_image = measure.label(green_binary)
+    cell_properties = measure.regionprops(labeled_image)
+    n_cells = len(cell_properties)
+    img_area = grayscale_image.shape[0] * grayscale_image.shape[1]
     features["cell_count"] = n_cells
     features["cell_density"] = n_cells / img_area if img_area > 0 else 0.0
 
-    areas = [p.area for p in props] if props else [0]
-    perimeters = [p.perimeter for p in props if p.perimeter is not None] if props else [0]
-    major_axes = [p.major_axis_length for p in props if p.major_axis_length is not None] if props else [0]
-    minor_axes = [p.minor_axis_length for p in props if p.minor_axis_length is not None] if props else [0]
-    eccentricities = [p.eccentricity for p in props if p.eccentricity is not None] if props else [0]
-    solidities = [p.solidity for p in props if p.solidity is not None] if props else [0]
+    areas = [p.area for p in cell_properties] if cell_properties else [0]
+    perimeters = [p.perimeter for p in cell_properties if p.perimeter is not None] if cell_properties else [0]
+    major_axes = [p.major_axis_length for p in cell_properties if p.major_axis_length is not None] if cell_properties else [0]
+    minor_axes = [p.minor_axis_length for p in cell_properties if p.minor_axis_length is not None] if cell_properties else [0]
+    eccentricities = [p.eccentricity for p in cell_properties if p.eccentricity is not None] if cell_properties else [0]
+    solidities = [p.solidity for p in cell_properties if p.solidity is not None] if cell_properties else [0]
 
     # Optional nuclear feature extraction (red channel) mapped to green-segmented cells
     # Controlled by config_params['extract_nuclear_features'] (defaults to False)
@@ -240,7 +257,7 @@ def extract_rpe_features(image_path: str, config_params: dict, verbose: bool = T
         red_mask = (red_binary > 0).astype(np.uint8)
 
         # Iterate through each cell region and search for a nucleus within its bbox
-        for p in props:
+        for p in cell_properties:
             # p.image is a boolean mask for the region within the bounding box
             minr, minc, maxr, maxc = p.bbox
             # Crop the red mask to the cell bounding box
@@ -319,27 +336,27 @@ def extract_rpe_features(image_path: str, config_params: dict, verbose: bool = T
             nc_ratios.append(nc_ratio)
 
         # Aggregate nuclear metrics using existing agg helper
-        features.update(agg("nucleus_area", nucleus_areas))
-        features.update(agg("nucleus_perimeter", nucleus_perimeters))
-        features.update(agg("nucleus_major_axis", nucleus_major_axes))
-        features.update(agg("nucleus_minor_axis", nucleus_minor_axes))
-        features.update(agg("nucleus_circularity", nucleus_circularity))
-        features.update(agg("nucleus_solidity", nucleus_solidities))
+        features.update(_aggregate_statistics("nucleus_area", nucleus_areas))
+        features.update(_aggregate_statistics("nucleus_perimeter", nucleus_perimeters))
+        features.update(_aggregate_statistics("nucleus_major_axis", nucleus_major_axes))
+        features.update(_aggregate_statistics("nucleus_minor_axis", nucleus_minor_axes))
+        features.update(_aggregate_statistics("nucleus_circularity", nucleus_circularity))
+        features.update(_aggregate_statistics("nucleus_solidity", nucleus_solidities))
         # For N/C ratios, replace NaN with a large sentinel for aggregation guard, then restore NaN handling
         nc_arr = np.array([float(x) if not (isinstance(x, float) and np.isnan(x)) else np.nan for x in nc_ratios], dtype=float)
         # When computing statistics, np.nanmean / np.nanstd can be used; use the
         # module-level nan-aware aggregator for N/C ratios and the standard
         # aggregator for numeric lists.
-        features.update(agg_nanaware("nc_ratio", nc_arr))
+        features.update(_aggregate_nanaware("nc_ratio", nc_arr))
 
-    features.update(agg("area", areas))
-    features.update(agg("perimeter", perimeters))
-    features.update(agg("major_axis", major_axes))
-    features.update(agg("minor_axis", minor_axes))
-    ar = [a / b if b > 0 else 0 for a, b in zip(major_axes, minor_axes)] if props else [0]
-    features.update(agg("aspect_ratio", ar))
-    features.update(agg("eccentricity", eccentricities))
-    features.update(agg("solidity", solidities))
+    features.update(_aggregate_statistics("area", areas))
+    features.update(_aggregate_statistics("perimeter", perimeters))
+    features.update(_aggregate_statistics("major_axis", major_axes))
+    features.update(_aggregate_statistics("minor_axis", minor_axes))
+    ar = [a / b if b > 0 else 0 for a, b in zip(major_axes, minor_axes)] if cell_properties else [0]
+    features.update(_aggregate_statistics("aspect_ratio", ar))
+    features.update(_aggregate_statistics("eccentricity", eccentricities))
+    features.update(_aggregate_statistics("solidity", solidities))
 
     circ = []
     for a, p in zip(areas, perimeters):
@@ -347,9 +364,9 @@ def extract_rpe_features(image_path: str, config_params: dict, verbose: bool = T
             circ.append((4 * np.pi * a) / (p * p))
         else:
             circ.append(0)
-    features.update(agg("circularity", circ))
+    features.update(_aggregate_statistics("circularity", circ))
 
-    centroids = [p.centroid for p in props] if props else []
+    centroids = [p.centroid for p in cell_properties] if cell_properties else []
     if len(centroids) > 1:
         pts = np.array(centroids)
         from scipy.spatial import distance
@@ -362,13 +379,13 @@ def extract_rpe_features(image_path: str, config_params: dict, verbose: bool = T
         features["nn_mean"] = 0.0
         features["nn_std"] = 0.0
 
-    lbp_hist = _compute_lbp_features(gray, P=lbp_points, R=lbp_radius)
+    lbp_hist = _compute_lbp_features(grayscale_image, points=lbp_points, radius=lbp_radius)
     for i, v in enumerate(lbp_hist):
         features[f"lbp_{i}"] = float(v)
 
     try:
         levels = int(config_params.get("glcm_levels", 64))
-        gray_reduced = (gray / (256 // max(1, levels))).astype(np.uint8)
+        gray_reduced = (grayscale_image / (256 // max(1, levels))).astype(np.uint8)
         distances = [1]
         angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
         glcm = graycomatrix(gray_reduced, distances=distances, angles=angles, levels=levels, symmetric=True, normed=True)
@@ -392,7 +409,7 @@ def extract_rpe_features(image_path: str, config_params: dict, verbose: bool = T
         for freq in gab_freqs:
             for ang in gab_angles:
                 try:
-                    real, imag = gabor(gray.astype(float), frequency=float(freq), theta=float(ang))
+                    real, imag = gabor(grayscale_image.astype(float), frequency=float(freq), theta=float(ang))
                     mag = np.hypot(real, imag)
                     mag = np.where(np.isfinite(mag), mag, np.nan)
                     mean_val = np.nanmean(mag)

@@ -7,7 +7,7 @@ Detects and supports three saved model forms:
  - legacy estimator (plain estimator)
 
 Usage:
-    py -3 scripts\load_model_bundle_and_predict.py --model <path_or_dir> --features <path_to_csv> [--out <out_dir>] [--analyze]
+    py -3 scripts/load_model_bundle_and_predict.py --model <path_or_dir> --features <path_to_csv> [--out <out_dir>] [--analyze]
 
 Flags:
   --force-legacy  : allow using a legacy estimator (best-effort, unsafe if columns/order mismatch)
@@ -16,6 +16,7 @@ Flags:
 import argparse
 import json
 from pathlib import Path
+from typing import Dict, List, Optional, Union, Any
 import joblib
 import pandas as pd
 import numpy as np
@@ -30,7 +31,7 @@ import matplotlib.pyplot as plt
 from analysis import resolve_output_dirs
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', '-m', help='Path to model bundle file or folder containing models (optional)')
     parser.add_argument('--features', '-f', help='Path to features CSV to predict', required=True)
@@ -80,10 +81,16 @@ def main():
     out_csv = Path(args.out) if args.out else (reports_dir / (features_csv.stem + '_predictions.csv'))
 
     print(f'Loading features from {features_csv}')
-    df = pd.read_csv(features_csv)
+    try:
+        features_df = pd.read_csv(features_csv)
+    except Exception as e:
+        raise SystemExit(f'Error loading features CSV: {e}')
 
     print(f'Loading model from {model_path}')
-    loaded = joblib.load(model_path)
+    try:
+        loaded_model = joblib.load(model_path)
+    except Exception as e:
+        raise SystemExit(f'Error loading model: {e}')
 
     # default processing variables
     model = None
@@ -93,15 +100,15 @@ def main():
     feature_cols = None
 
     # Case 1: bundle dict
-    if isinstance(loaded, dict) and 'model' in loaded:
+    if isinstance(loaded_model, dict) and 'model' in loaded_model:
         print('Detected model bundle with preprocessing')
-        model = loaded['model']
-        imputer = loaded.get('imputer')
-        scaler = loaded.get('scaler')
-        dropped = loaded.get('dropped_columns', []) or []
-        feature_cols = loaded.get('feature_columns')
+        model = loaded_model['model']
+        imputer = loaded_model.get('imputer')
+        scaler = loaded_model.get('scaler')
+        dropped = loaded_model.get('dropped_columns', []) or []
+        feature_cols = loaded_model.get('feature_columns')
 
-        df_proc = df.copy()
+        df_proc = features_df.copy()
         for c in dropped:
             if c in df_proc.columns:
                 df_proc = df_proc.drop(columns=[c])
@@ -123,11 +130,11 @@ def main():
 
     # Case 2: Pipeline-like or estimator supporting raw input
     else:
-        model = loaded
+        model = loaded_model
         # If it looks like a Pipeline, use directly
         if hasattr(model, 'named_steps'):
             print('Detected sklearn Pipeline — using it directly')
-            X = df.drop(columns=['label']) if 'label' in df.columns else df.copy()
+            X = features_df.drop(columns=['label']) if 'label' in features_df.columns else features_df.copy()
             X = X.replace([np.inf, -np.inf], np.nan).fillna(0)
             preds = model.predict(X)
         else:
@@ -135,19 +142,22 @@ def main():
             if not args.force_legacy:
                 raise SystemExit('Loaded a legacy estimator; re-run with --force-legacy to permit best-effort prediction')
             print('Legacy estimator: applying best-effort predict (fill NaN with 0)')
-            X = df.drop(columns=['label']) if 'label' in df.columns else df.copy()
+            X = features_df.drop(columns=['label']) if 'label' in features_df.columns else features_df.copy()
             X = X.replace([np.inf, -np.inf], np.nan).fillna(0)
             preds = model.predict(X)
 
     # Save predictions
-    out = df.copy()
-    out['prediction'] = preds
-    out.to_csv(out_csv, index=False)
-    print(f'Wrote predictions to {out_csv}')
+    output_df = features_df.copy()
+    output_df['prediction'] = preds
+    try:
+        output_df.to_csv(out_csv, index=False)
+        print(f'Wrote predictions to {out_csv}')
+    except Exception as e:
+        raise SystemExit(f'Error saving predictions: {e}')
 
     # Optional analysis
-    if args.analyze and 'label' in df.columns:
-        y_true = df['label']
+    if args.analyze and 'label' in features_df.columns:
+        y_true = features_df['label']
         # ensure types are compatible (best-effort)
         y_true = y_true.astype(str)
         preds = preds.astype(str)

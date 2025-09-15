@@ -1,4 +1,11 @@
-# Morphological Feature Analysis of Retinal Pigment Epithelial Cell from C57BL/6J Mice during Aging
+# Morphologica## Project summary (elevator pitch)
+
+- **Inputs**: labeled folders of TIFF crops (per-image) or precomputed feature CSVs.
+- **Pipeline**: 6-step automated workflow (extraction → cleaning → CSV loading → PCA → training → artifacts)
+- **Features**: morphology, intensity stats, texture (LBP, GLCM-like), Gabor responses, and spatial measures (centroids, nearest neighbor, density)
+- **Processing**: Aggregates per-region measurements into per-image summaries (count, mean, median, std, min, max)
+- **Modeling**: Cleans data (inf→NaN), drops columns with excessive missingness, imputes (median), scales, runs PCA, and trains a stacking classifier (RandomForest + XGBoost/HistGradientBoosting, logistic meta-learner)
+- **Outputs**: cleaned/raw features CSV, PCA plots, confusion matrix, JSON report, and a saved model bundle containing the model + imputer + scaler for reproducible predictionysis of Retinal Pigment Epithelial Cell from C57BL/6J Mice during Aging
 
 A configuration-driven Python application for extracting, aggregating, and
 analyzing features from Retinal Pigment Epithelium (RPE) image crops. The
@@ -29,7 +36,7 @@ scripts and outputs.
 
 ## Quick start (Windows PowerShell)
 
-1. From the `Final Code` folder, create and activate a venv and install deps:
+1. From the project folder, create and activate a venv and install deps:
 
 ```powershell
 py -3 -m venv .venv
@@ -45,7 +52,18 @@ pip install -r requirements.txt
 py -3 -u .\main.py -c .\config.json -v
 ```
 
-This will extract features, clean and preprocess them automatically, perform PCA, train the model, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
+This will run the complete 6-step pipeline: extract features, clean and preprocess them, load cleaned data from CSV, perform PCA, train the model, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
+
+## Pipeline Overview
+
+The automated pipeline consists of 6 steps:
+
+1. **Feature Extraction**: Extracts morphological, texture, and intensity features from TIFF images
+2. **Clean & Prepare**: Cleans data, handles missing values, imputes, scales, and saves cleaned CSV
+3. **Load Cleaned Data**: Loads the cleaned CSV to ensure consistency for all modeling steps
+4. **PCA Analysis**: Performs PCA and generates visualization plots
+5. **Model Training**: Trains stacking classifier (RandomForest + XGBoost/HistGradientBoosting)
+6. **Save Artifacts**: Saves model bundle, preprocessing objects, reports, and plots
 
 ## Configuration
 
@@ -64,14 +82,19 @@ Modify these values to tune extraction and modeling without editing code.
 
 ## Files and scripts
 
-- `main.py` — single entrypoint. Orchestrates extraction → cleaning → PCA →
-  training → export. Implements a Singleton pipeline manager and contains
-  modular functions for feature extraction and plotting. Cleaning is now
-  integrated and runs automatically, saving cleaned features and preprocessing
-  bundle.
-- `config.json` — runtime configuration (paths, feature params, analysis params).
-- `requirements.txt` — Python dependencies used by the project.
-  Note: To run predictions you can load the saved model bundle and preprocessing objects directly from the `models/` folder. Example PowerShell snippet:
+- `main.py` — **Main entrypoint**. Orchestrates the complete 6-step pipeline: feature extraction → cleaning → CSV loading → PCA → training → export. Uses cleaned CSV data for modeling steps to ensure consistency.
+- `config.json` — runtime configuration (paths, feature params, analysis params)
+- `requirements.txt` — Python dependencies
+- `scripts/` — modular scripts for specific functionality:
+  - `feature_extraction.py` — morphological, texture, and intensity feature extraction
+  - `clean_and_prepare.py` — data cleaning, imputation, and preprocessing
+  - `analysis.py` — PCA, model training, and artifact saving
+  - `load_model_bundle_and_predict.py` — prediction on new data using saved models
+  - `timer.py` — execution timing utilities
+  - `train_and_save_pipeline.py` — alternative training script
+  - `visualize_channels.py` — channel visualization for debugging
+
+All scripts have been comprehensively refactored for PEP 8 compliance, type hints, error handling, and maintainability.
 
 ```powershell
 py - <<'PY'
@@ -121,15 +144,31 @@ If you need the original helper scripts (for compatibility), they are archived i
 
 ## Recent important fixes (what changed)
 
-- **Code Quality Improvements**: The entire codebase has been refactored for PEP 8 compliance, including snake_case variable naming, comprehensive docstrings, type hints, and modern Python idioms (f-strings, pathlib). Error handling has been enhanced with try-except blocks for file I/O and other risky operations.
-- **Integrated Cleaning**: The cleaning functionality from `clean_features.py` has been merged into the main pipeline in `analysis.py`. Cleaning now runs automatically after feature extraction, saving the cleaned CSV and preprocessing bundle without needing a separate step.
-- Gabor feature stability: Gabor responses now use numerically stable
-  hypot-based magnitude and nan-safe aggregations to avoid inf/overflow values.
-- Robust preprocessing: pipeline replaces inf with NaN, drops columns with
-  > `max_nan_fraction` NaNs, imputes remaining NaNs with median, and scales
-  > features before PCA/training.
-- Model bundle saved with preprocessing objects so downstream predictions are
-  reproducible without re-training.
+- **Complete Code Refactoring**: The entire codebase has been comprehensively refactored for PEP 8 compliance, including:
+  - Snake_case variable naming throughout
+  - Comprehensive type hints on all functions
+  - Modern Python idioms (f-strings, pathlib)
+  - Enhanced error handling with try-except blocks
+  - Detailed docstrings for all functions and classes
+  - Consistent code formatting and structure
+
+- **Pipeline Architecture**: Updated to 6-step workflow that uses cleaned CSV for modeling steps:
+  1. Feature extraction from images
+  2. Clean and prepare data (saves cleaned CSV)
+  3. Load cleaned data from CSV (ensures consistency)
+  4. PCA for visualization
+  5. Training stacking classifier
+  6. Save artifacts and reports
+
+- **Modular Script Organization**: All functionality moved to dedicated scripts in `scripts/` folder for better maintainability
+
+- **Enhanced Error Handling**: Robust error handling for file I/O, image processing, and data operations with clear error messages
+
+- **Gabor Feature Stability**: Gabor responses now use numerically stable hypot-based magnitude and nan-safe aggregations
+
+- **Preprocessing Pipeline**: Automatically handles inf→NaN conversion, column dropping based on missingness, median imputation, and feature scaling
+
+- **Model Bundle**: Saved with preprocessing objects for fully reproducible predictions without re-training
 
 ## Predicting on an existing features CSV
 
@@ -139,23 +178,21 @@ In short: load `models/stacking_model_bundle.joblib` with `joblib.load`, read `r
 
 ## Troubleshooting & tips
 
-- The code now includes enhanced error handling for file I/O, image processing, and data operations, providing clear error messages for debugging.
-- If the pipeline errors opening TIFFs, confirm `paths.image_directory` points
-  to the correct folder and that files are readable.
-- If many columns are dropped, lower `analysis_params.max_nan_fraction` or
-  inspect `rpe_extracted_features.csv` to see which features have missing
-  values.
-- If XGBoost is not available, the pipeline automatically falls back to
-  `HistGradientBoostingClassifier`.
+- **Enhanced Error Handling**: The refactored code includes comprehensive error handling for file I/O, image processing, and data operations, providing clear error messages for debugging.
+- **Pipeline Steps**: The 6-step pipeline ensures data consistency by using the cleaned CSV for all modeling steps (PCA, training, predictions).
+- **Configuration**: If the pipeline errors opening TIFFs, confirm `paths.image_directory` points to the correct folder and that files are readable.
+- **Data Quality**: If many columns are dropped, lower `analysis_params.max_nan_fraction` or inspect `rpe_extracted_features.csv` to see which features have missing values.
+- **Dependencies**: If XGBoost is not available, the pipeline automatically falls back to `HistGradientBoostingClassifier`.
+- **Code Quality**: All scripts follow PEP 8 standards with type hints, comprehensive docstrings, and modern Python practices for maintainability.
 
 ## Next steps / suggested improvements
 
-- Add unit tests for feature extraction (including a small synthetic image to
-  assert no infs are produced), and CI to run linting and tests on push.
-- Add a small CLI with subcommands (`extract`, `clean`, `train`, `predict`) to
-  separate pipeline phases.
-- Add a short Jupyter notebook that visualizes top features and their importances
-  for easier interpretation.
+- **✅ Code Quality**: Complete PEP 8 refactoring with type hints, docstrings, and error handling (COMPLETED)
+- **✅ Pipeline Architecture**: 6-step workflow with CSV-based data consistency (COMPLETED)
+- **Testing**: Add unit tests for feature extraction and CI for linting/tests on push
+- **CLI Enhancement**: Add subcommands (`extract`, `clean`, `train`, `predict`) for separate pipeline phases
+- **Visualization**: Create Jupyter notebook for feature importance analysis and model interpretation
+- **Documentation**: Add API documentation and usage examples for individual scripts
 
 ## License
 
