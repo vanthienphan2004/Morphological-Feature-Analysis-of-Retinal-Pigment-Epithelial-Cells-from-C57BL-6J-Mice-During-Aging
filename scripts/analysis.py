@@ -28,6 +28,7 @@ from kneed import KneeLocator
 def clean_and_prepare(df: pd.DataFrame, config: dict) -> Tuple[pd.DataFrame, Pipeline]:
     """
     Clean and prepare the features DataFrame for modeling.
+    Includes saving cleaned CSV and preprocessing bundle.
 
     Args:
         df: Raw features DataFrame with target column.
@@ -55,9 +56,20 @@ def clean_and_prepare(df: pd.DataFrame, config: dict) -> Tuple[pd.DataFrame, Pip
     X = X.select_dtypes(include=[np.number])
     X.replace([np.inf, -np.inf], np.nan, inplace=True)
 
+    # Report NaN counts
+    nan_counts = X.isna().sum()
+    nan_frac = nan_counts / len(X)
+    print("Top columns by NaN fraction (showing >0):")
+    print(nan_frac[nan_frac > 0].sort_values(ascending=False).head(30).to_string())
+
     col_thresh = float(cfg.get('drop_column_na_threshold', 0.5))
     keep = X.columns[X.isna().mean() < col_thresh]
-    X = X[keep]
+    dropped = X.columns[X.isna().mean() >= col_thresh].tolist()
+    if dropped:
+        print(f"Dropping {len(dropped)} columns with NaN fraction > {col_thresh}: {dropped}")
+        X = X[keep]
+    else:
+        print("No columns to drop based on NaN fraction threshold.")
 
     imputer = SimpleImputer(strategy=cfg.get('impute_strategy', 'median'))
     scaler = StandardScaler()
@@ -65,6 +77,27 @@ def clean_and_prepare(df: pd.DataFrame, config: dict) -> Tuple[pd.DataFrame, Pip
 
     X_trans = pipe.fit_transform(X)
     X_clean = pd.DataFrame(X_trans, columns=keep, index=X.index)
+
+    # Save cleaned CSV and bundle
+    base = Path(__file__).resolve().parent
+    out_root, reports_dir, models_dir, plots_dir = resolve_output_dirs(base)
+    cleaned_csv = reports_dir / "rpe_extracted_features_cleaned.csv"
+    prep_joblib = models_dir / "feature_preprocessing_bundle.joblib"
+
+    features_clean = X_clean.copy()
+    features_clean[target] = y
+    features_clean.to_csv(cleaned_csv, index=False)
+    print(f"Saved cleaned features to {cleaned_csv}")
+
+    bundle = {
+        "imputer": imputer,
+        "scaler": scaler,
+        "dropped_columns": dropped,
+        "feature_columns": keep.tolist(),
+    }
+    joblib.dump(bundle, prep_joblib)
+    print(f"Saved preprocessing bundle to {prep_joblib}")
+
     return (X_clean, y), pipe
 
 
