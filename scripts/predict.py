@@ -27,7 +27,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 
-from scripts.analysis import resolve_output_dirs
+from analysis import resolve_output_dirs
 
 
 def main():
