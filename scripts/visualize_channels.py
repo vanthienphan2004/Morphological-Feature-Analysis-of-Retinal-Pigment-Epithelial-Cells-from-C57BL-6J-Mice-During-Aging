@@ -54,7 +54,7 @@ def find_first_tiff(image_dir: str):
 
 def main():
     parser = argparse.ArgumentParser(description='Visualize red/green channels and masks for one example image')
-    parser.add_argument('--config', '-c', default=r"D:/GSU/CASA/Math Path 2/Code for RPE Crops/Final Code/config.json", help='Path to config.json')
+    parser.add_argument('--config', '-c', default=r"D:/GSU/CASA/Math Path 2/Code for RPE Crops/Morphological Feature Analysis of Retinal Pigment Epithelial Cell from C57BL6J Mice during Aging/config.json", help='Path to config.json')
     parser.add_argument('--output', '-o', default=None, help='Output image path (PNG). Defaults to <output_directory>/example_channels.png')
     parser.add_argument('--verbose', '-v', action='store_true')
     args = parser.parse_args()
@@ -121,7 +121,7 @@ def main():
         out_fp = args.output
     else:
         # prefer centralized helper
-        from scripts.analysis import resolve_output_dirs
+        from analysis import resolve_output_dirs
         base = Path(__file__).resolve().parents[1]
         _, _, _, plots_dir = resolve_output_dirs(base)
         out_fp = str(plots_dir / 'example_channels.png')

@@ -19,7 +19,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 
 ROOT = Path(__file__).resolve().parents[1]
-from scripts.analysis import resolve_output_dirs
+from analysis import resolve_output_dirs
 out_root, reports_dir, models_dir, _ = resolve_output_dirs(ROOT)
 cfg_path = ROOT / 'config.json'
 if cfg_path.exists():
