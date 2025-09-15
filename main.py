@@ -76,15 +76,25 @@ def run_from_config(config: dict, verbose: bool = False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RPE image analysis pipeline")
-    parser.add_argument("--config", "-c", dest="config", default=r"D:/GSU/CASA/Math Path 2/Code for RPE Crops/Morphological Feature Analysis of Retinal Pigment Epithelial Cell from C57BL6J Mice during Aging/config.json", help="Path to config.json (absolute)")
+    parser.add_argument("--config", "-c", dest="config", default=None, help="Path to config.json (optional, will search automatically if not provided)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
-    args = parser.parse_args()
-    # Normalize path separators so both forward and backslashes work on Windows
-    config_path = Path(args.config).resolve()
-    if not config_path.is_file():
-        print(f"Error: config.json not found at {config_path}")
-        sys.exit(2)
+
+    # Automatically detect config.json if not provided
+    if args.config is None:
+        config_path = None
+        for p in (Path.cwd(), *Path.cwd().parents):
+            if (p / 'config.json').exists():
+                config_path = p / 'config.json'
+                break
+        if config_path is None:
+            print("Error: config.json not found in current directory or parent directories")
+            sys.exit(2)
+    else:
+        config_path = Path(args.config).resolve()
+        if not config_path.is_file():
+            print(f"Error: config.json not found at {config_path}")
+            sys.exit(2)
 
     try:
         with open(config_path, 'r') as fh:
