@@ -1,4 +1,4 @@
-"""
+r"""
 Consolidated predictor script.
 
 Detects and supports three saved model forms:
@@ -7,7 +7,7 @@ Detects and supports three saved model forms:
  - legacy estimator (plain estimator)
 
 Usage:
-    py -3 scripts\predict.py --model <path_or_dir> --features <path_to_csv> [--outdir <out_dir>] [--analyze]
+    py -3 scripts\predict.py --model <path_or_dir> --features <path_to_csv> [--out <out_dir>] [--analyze]
 
 Flags:
   --force-legacy  : allow using a legacy estimator (best-effort, unsafe if columns/order mismatch)
@@ -149,6 +149,8 @@ def main():
     if args.analyze and 'label' in df.columns:
         y_true = df['label']
         # ensure types are compatible (best-effort)
+        y_true = y_true.astype(str)
+        preds = preds.astype(str)
         try:
             report = classification_report(y_true, preds, output_dict=True)
         except Exception:
