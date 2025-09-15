@@ -7,7 +7,7 @@ Detects and supports three saved model forms:
  - legacy estimator (plain estimator)
 
 Usage:
-    py -3 scripts\predict.py --model <path_or_dir> --features <path_to_csv> [--out <out_dir>] [--analyze]
+    py -3 scripts\load_model_bundle_and_predict.py --model <path_or_dir> --features <path_to_csv> [--out <out_dir>] [--analyze]
 
 Flags:
   --force-legacy  : allow using a legacy estimator (best-effort, unsafe if columns/order mismatch)

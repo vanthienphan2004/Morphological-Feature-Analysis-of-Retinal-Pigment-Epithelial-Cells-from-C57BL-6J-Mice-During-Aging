@@ -72,9 +72,7 @@ Modify these values to tune extraction and modeling without editing code.
 - `scripts/clean_features.py` — utility to clean an existing features CSV (replace
   infs, drop high-NaN columns, median impute, scale) and save a preprocessing
   bundle.
-  Note: some helper scripts for prediction were removed. To run predictions you
-  can load the saved model bundle and preprocessing objects directly from the
-  `models/` folder. Example PowerShell snippet:
+  Note: To run predictions you can load the saved model bundle and preprocessing objects directly from the `models/` folder. Example PowerShell snippet:
 
 ```powershell
 py - <<'PY'
@@ -103,7 +101,7 @@ PY
 Alternatively, a consolidated helper is available:
 
 ```powershell
-py -3 scripts\predict.py --features <output_directory>\reports\rpe_extracted_features.csv
+py -3 scripts\load_model_bundle_and_predict.py --features "analysis_results\reports\rpe_extracted_features_cleaned.csv" --model "analysis_results\models\model.joblib" --force-legacy --analyze
 ```
 
 If you need the original helper scripts (for compatibility), they are archived in `scripts/archived_predictors/`.
@@ -130,6 +128,7 @@ If you need the original helper scripts (for compatibility), they are archived i
 - Robust preprocessing: pipeline replaces inf with NaN, drops columns with
   > `max_nan_fraction` NaNs, imputes remaining NaNs with median, and scales
   > features before PCA/training.
+  >
 - Model bundle saved with preprocessing objects so downstream predictions are
   reproducible without re-training.
 
