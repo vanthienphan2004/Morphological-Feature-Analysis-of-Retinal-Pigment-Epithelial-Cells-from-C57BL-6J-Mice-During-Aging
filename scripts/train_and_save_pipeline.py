@@ -117,7 +117,7 @@ def save_classification_report(
         training_metrics: Optional dict with keys like 'cv_mean_score', 'cv_std_score', 'test_score'.
     """
     # Import here to avoid circular imports
-    from analysis import resolve_output_dirs
+    from scripts.analysis import resolve_output_dirs
 
     classification_report_dict = classification_report(true_labels, predicted_labels, output_dict=True)
     if training_metrics:
