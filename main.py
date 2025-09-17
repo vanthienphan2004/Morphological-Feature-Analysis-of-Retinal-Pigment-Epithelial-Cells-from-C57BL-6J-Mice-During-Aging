@@ -1,7 +1,14 @@
 """
 Main script for RPE image analysis pipeline.
 
-This script orchestrates the full pipeline: feature extraction, data cleaning,
+This script orchestrates the full pipeline: feature extract    # 6) Save artifacts and reports
+    print('Saving artifacts and reports...')
+    save_artifacts(preproc, pca, model, str(out_root))
+    save_classification_report(labels_for_modeling, model.predict(features_for_modeling), str(out_root), training_metrics=training_report)
+
+    # 7) Extract and save feature importances
+    print('Extracting feature importances...')
+    extract_and_save_feature_importances(model, list(features_for_modeling.columns), str(out_root)) data cleaning,
 loading cleaned data from CSV, PCA, model training, and artifact saving based on a configuration file.
 """
 
@@ -20,13 +27,16 @@ from scripts.feature_extraction import extract_features_from_directory
 from scripts.clean_and_prepare import clean_and_prepare
 from scripts.analysis import (
     run_pca,
-    train_stacking,
-    save_artifacts,
     plot_pca_scree,
     plot_pca_cumulative,
     plot_pca_scatter,
-    save_classification_report,
     resolve_output_dirs,
+    extract_and_save_feature_importances,
+)
+from scripts.train_and_save_pipeline import (
+    train_stacking,
+    save_artifacts,
+    save_classification_report,
 )
 
 
@@ -41,6 +51,7 @@ def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
     4. PCA for visualization
     5. Training stacking classifier
     6. Save artifacts and reports
+    7. Extract and save feature importances
 
     Args:
         config: Configuration dictionary containing paths and parameters.
@@ -111,6 +122,10 @@ def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
     print('Saving artifacts and reports...')
     save_artifacts(preproc, pca, model, str(out_root))
     save_classification_report(labels_for_modeling, model.predict(features_for_modeling), str(out_root), training_metrics=training_metrics)
+
+    # 7) Extract and save feature importances
+    print('Extracting feature importances...')
+    extract_and_save_feature_importances(model, list(features_for_modeling.columns), str(out_root))
 
 
 

@@ -1,196 +1,149 @@
 """
-Train a supervised stacking pipeline from extracted features and save a Pipeline including the scaler.
-Outputs:
- - pipeline.joblib (Pipeline with scaler and model)
- - classification_report.json
- - confusion_matrix.png
- - feature_importances.csv and feature_importances.png (from RandomForest base learner if present)
- - feature_names.json (to record the expected column order)
+Training and pipeline saving module for RPE image data.
 
-Usage:
-    py scripts/train_and_save_pipeline.py --features <path_to_csv> --outdir <out_dir>
-
+This module provides functions for training machine learning models,
+saving trained artifacts, and generating classification reports.
 """
-import argparse
-import json
+
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, Any, Optional
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier, StackingClassifier
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.decomposition import PCA
 import joblib
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier, StackingClassifier, HistGradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+import json
 
 
-def build_estimators(random_state: int = 42, rf_params: Optional[Dict[str, Any]] = None) -> Tuple[RandomForestClassifier, Tuple[str, Any]]:
-    rf_params = rf_params or {}
-    rf = RandomForestClassifier(random_state=random_state, **rf_params)
-    try:
-        from xgboost import XGBClassifier  # type: ignore
-        gb = XGBClassifier(eval_metric='logloss', verbosity=0, random_state=random_state)
-        gb_name = 'xgboost'
-    except Exception:
-        gb = HistGradientBoostingClassifier(random_state=random_state)
-        gb_name = 'hist_gb'
-    return rf, (gb_name, gb)
+def train_stacking(features: pd.DataFrame, labels: pd.Series, config: Dict[str, Any]) -> tuple[object, Dict[str, float]]:
+    """
+    Train a stacking classifier.
+
+    Args:
+        features: Features DataFrame.
+        labels: Target series.
+        config: Configuration dictionary.
+
+    Returns:
+        Tuple of trained model and training metrics.
+    """
+    rf_estimator = RandomForestClassifier(
+        n_estimators=int(config.get('rf_n_estimators', 100)),
+        random_state=42
+    )
+    estimators_list = [('rf', rf_estimator)]
+    final_estimator = RandomForestClassifier(
+        n_estimators=int(config.get('final_n_estimators', 200)),
+        random_state=42
+    )
+    stacking_model = StackingClassifier(
+        estimators=estimators_list,
+        final_estimator=final_estimator,
+        cv=5
+    )
+
+    features_train, features_test, labels_train, labels_test = train_test_split(
+        features, labels,
+        test_size=float(config.get('test_size', 0.2)),
+        random_state=42,
+        stratify=labels
+    )
+    stacking_model.fit(features_train, labels_train)
+
+    cross_val_scores = cross_val_score(stacking_model, features_train, labels_train, cv=5)
+    training_report = {
+        'cv_mean_score': float(np.mean(cross_val_scores)),
+        'cv_std_score': float(np.std(cross_val_scores)),
+        'test_score': float(stacking_model.score(features_test, labels_test)),
+    }
+
+    return stacking_model, training_report
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--features", help="Path to extracted features CSV")
-    parser.add_argument("--outdir", help="Output directory to write pipeline and reports")
-    parser.add_argument("--cv", type=int, default=5, help="CV folds")
-    parser.add_argument("--random_state", type=int, default=42)
-    args = parser.parse_args()
+def save_artifacts(pipeline: Pipeline, pca_model: PCA, trained_model: object, output_directory: str) -> None:
+    """
+    Save preprocessing pipeline, PCA, and model to disk.
 
-    base = Path(__file__).resolve().parents[1]
-
-    # Resolve output directories using centralized helper
+    Args:
+        pipeline: Preprocessing pipeline.
+        pca_model: PCA object.
+        trained_model: Trained model.
+        output_directory: Output directory path.
+    """
+    # Import here to avoid circular imports
     from scripts.analysis import resolve_output_dirs
-    out_root, reports_dir, models_dir, plots_dir = resolve_output_dirs(base)
 
-    features_path = Path(args.features) if args.features else reports_dir / 'rpe_extracted_features.csv'
-    outdir = Path(args.outdir) if args.outdir else out_root
-
-    if not features_path.exists():
-        raise SystemExit(f"Features CSV not found: {features_path}")
-
+    # Save preprocessor, pca, and model into a dedicated models directory
+    base_path = Path(__file__).resolve().parent
+    output_root, reports_dir, models_dir, plots_dir = resolve_output_dirs(base_path)
+    # if a user provided a custom out_dir string path, prefer it
     try:
-        features_df = pd.read_csv(features_path)
-    except Exception as e:
-        raise SystemExit(f'Error loading features CSV: {e}')
-        
-    if 'label' not in features_df.columns:
-        raise SystemExit("Features CSV must contain a 'label' column")
+        user_output_dir = Path(output_directory)
+        if user_output_dir.exists() and user_output_dir.is_dir():
+            output_root = user_output_dir
+            reports_dir = output_root / 'reports'
+            models_dir = output_root / 'models'
+            plots_dir = output_root / 'plots'
+            reports_dir.mkdir(parents=True, exist_ok=True)
+            models_dir.mkdir(parents=True, exist_ok=True)
+            plots_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
 
-    features_matrix = features_df.drop(columns=['label']).copy()
-    labels = features_df['label'].copy()
+    joblib.dump(pipeline, models_dir / 'preprocessor.joblib')
+    joblib.dump(pca_model, models_dir / 'pca.joblib')
+    joblib.dump(trained_model, models_dir / 'model.joblib')
 
-    # Save feature names/order for future checks (reports)
-    feature_names = list(features_matrix.columns)
+
+def save_classification_report(
+    true_labels: pd.Series,
+    predicted_labels: pd.Series,
+    output_directory: str,
+    training_metrics: Optional[Dict[str, float]] = None
+) -> None:
+    """
+    Save classification report (and optionally include training metrics).
+
+    Args:
+        true_labels: True labels.
+        predicted_labels: Predicted labels.
+        output_directory: Output directory path.
+        training_metrics: Optional dict with keys like 'cv_mean_score', 'cv_std_score', 'test_score'.
+    """
+    # Import here to avoid circular imports
+    from analysis import resolve_output_dirs
+
+    classification_report_dict = classification_report(true_labels, predicted_labels, output_dict=True)
+    if training_metrics:
+        # merge under a top-level key so it doesn't collide with class metrics
+        classification_report_dict['_training_metrics'] = training_metrics
+    base_path = Path(__file__).resolve().parent
+    output_root, reports_dir, models_dir, plots_dir = resolve_output_dirs(base_path)
     try:
-        with open(reports_dir / 'feature_names.json', 'w') as fh:
-            json.dump(feature_names, fh, indent=2)
-    except Exception as e:
-        print(f'Warning: Could not save feature names: {e}')
+        user_output_dir = Path(output_directory)
+        if user_output_dir.exists() and user_output_dir.is_dir():
+            output_root = user_output_dir
+            reports_dir = output_root / 'reports'
+            plots_dir = output_root / 'plots'
+            reports_dir.mkdir(parents=True, exist_ok=True)
+            plots_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
 
-    rf, gb_pair = build_estimators(random_state=args.random_state, rf_params=None)
-    estimators = [('rf', rf), gb_pair]
-    final_estimator = LogisticRegression(max_iter=2000)
-    stacking = StackingClassifier(estimators=estimators, final_estimator=final_estimator, cv=args.cv, passthrough=False)
+    with open(reports_dir / 'classification_report.json', 'w') as file_handle:
+        json.dump(classification_report_dict, file_handle, indent=2)
 
-    pipeline = Pipeline([
-        ('scaler', StandardScaler()),
-        ('model', stacking),
-    ])
-
-    print("Starting cross-validated predictions (this may take a bit)...")
-    skf = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=args.random_state)
-    try:
-        predictions = cross_val_predict(pipeline, features_matrix, labels, cv=skf, n_jobs=-1)
-    except Exception as exc:
-        print("cross_val_predict failed, falling back to single-fit predict. Error:", exc)
-        pipeline.fit(features_matrix, labels)
-        predictions = pipeline.predict(features_matrix)
-
-    report = classification_report(labels, predictions, output_dict=True)
-    print("Classification report (CV):")
-    print(classification_report(labels, predictions))
-
-    # confusion matrix
-    cm = confusion_matrix(labels, predictions)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+    # confusion matrix (store as a plot)
+    confusion_matrix_array = confusion_matrix(true_labels, predicted_labels)
+    display = ConfusionMatrixDisplay(confusion_matrix=confusion_matrix_array)
     plt.figure(figsize=(8, 6))
-    disp.plot(values_format='d', cmap='Blues')
-    plt.title('Confusion Matrix (CV)')
-    plt.savefig(plots_dir / 'confusion_matrix_cv.png')
+    display.plot(values_format='d', cmap='Blues')
+    plt.title('Confusion Matrix')
+    plt.savefig(plots_dir / 'confusion_matrix.png')
     plt.close()
-
-    # Fit pipeline on full data and save
-    print("Fitting final pipeline on full data...")
-    pipeline.fit(features_matrix, labels)
-    try:
-        joblib.dump(pipeline, models_dir / 'pipeline.joblib')
-        print(f"Saved pipeline to {models_dir / 'pipeline.joblib'}")
-    except Exception as e:
-        raise SystemExit(f'Error saving pipeline: {e}')
-
-    # Save classification report
-    try:
-        with open(reports_dir / 'classification_report_cv.json', 'w') as fh:
-            json.dump(report, fh, indent=2)
-    except Exception as e:
-        print(f'Warning: Could not save classification report: {e}')
-
-    # Feature importances from RF base learner in stacking (if present)
-    try:
-        model = pipeline.named_steps.get('model')
-        rf_bt = None
-        # Try to find a RandomForestClassifier among named_estimators_
-        try:
-            from sklearn.ensemble import RandomForestClassifier as _RFC
-        except Exception:
-            _RFC = None
-
-        if model is not None and hasattr(model, 'named_estimators_') and _RFC is not None:
-            named = model.named_estimators_
-            # Preferred key 'rf'
-            if 'rf' in named:
-                rf_bt = named.get('rf')
-            else:
-                # Fallback: search for an estimator instance of RandomForestClassifier
-                for nm, est in named.items():
-                    try:
-                        if isinstance(est, _RFC):
-                            rf_bt = est
-                            break
-                    except Exception:
-                        continue
-
-        # As a last resort, check attribute estimators_ (fitted estimators list)
-        if rf_bt is None and model is not None and hasattr(model, 'estimators_') and _RFC is not None:
-            for est in getattr(model, 'estimators_', []):
-                try:
-                    if isinstance(est, _RFC):
-                        rf_bt = est
-                        break
-                except Exception:
-                    continue
-
-        importances = None
-        if rf_bt is not None:
-            importances = getattr(rf_bt, 'feature_importances_', None)
-
-        if importances is None:
-            print("No RandomForest feature importances found in stacking model; skipping feature_importances.csv")
-        else:
-            fi = pd.DataFrame({'feature': feature_names, 'importance': importances})
-            fi = fi.sort_values('importance', ascending=False)
-            fi.to_csv(reports_dir / 'feature_importances.csv', index=False)
-
-            plt.figure(figsize=(10, 6))
-            plt.bar(fi['feature'].head(30), fi['importance'].head(30))
-            plt.xticks(rotation=90)
-            plt.title('Top 30 Feature Importances (RF)')
-            plt.tight_layout()
-            plt.savefig(plots_dir / 'feature_importances.png')
-            plt.close()
-    except Exception as exc:
-        print("Could not extract feature importances:", exc)
-
-    print("Training and saving complete. Outputs written to:")
-    print(" -", models_dir / 'pipeline.joblib')
-    print(" -", reports_dir / 'classification_report_cv.json')
-    print(" -", plots_dir / 'confusion_matrix_cv.png')
-    print(" -", reports_dir / 'feature_importances.csv' if (reports_dir / 'feature_importances.csv').exists() else "(no importances)")
-
-
-if __name__ == '__main__':
-    main()
