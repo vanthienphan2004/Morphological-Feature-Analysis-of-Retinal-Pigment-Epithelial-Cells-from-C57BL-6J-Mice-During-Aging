@@ -53,7 +53,7 @@ def clean_and_prepare(features_df: pd.DataFrame, config: Dict[str, Any]) -> Tupl
     print("Top columns by NaN fraction (showing >0):")
     print(nan_fraction[nan_fraction > 0].sort_values(ascending=False).head(30).to_string())
 
-    column_threshold = float(analysis_config.get('drop_column_na_threshold', 0.5))
+    column_threshold = float(analysis_config.get('max_nan_fraction', 0.5))
     columns_to_keep = features.columns[features.isna().mean() < column_threshold]
     dropped_columns = features.columns[features.isna().mean() >= column_threshold].tolist()
     if dropped_columns:
