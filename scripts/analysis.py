@@ -302,7 +302,7 @@ def extract_and_save_feature_importances(
 
     # Create visualization
     plt.figure(figsize=(12, 8))
-    top_features = feature_importance_df.head(30)  # Show top 30 features
+    top_features = feature_importance_df.head(10)  # Show top 10 features
     plt.barh(
         range(len(top_features)),
         top_features['importance'],
@@ -315,13 +315,10 @@ def extract_and_save_feature_importances(
     )
     plt.xlabel('Feature Importance')
     plt.ylabel('Features')
-    plt.title('Top 30 Feature Importances (RandomForest)')
+    plt.title('Top 10 Feature Importances (RandomForest)')
     plt.gca().invert_yaxis()  # Highest importance at top
     plt.tight_layout()
     plt.savefig(plots_dir / 'feature_importances.png', dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Saved feature importance plot to {plots_dir / 'feature_importances.png'}")
 
-    # Print top 10 features to console
-    print("\nTop 10 Most Important Features:")
-    print(feature_importance_df.head(10).to_string(index=False))
