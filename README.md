@@ -55,7 +55,7 @@ All runtime parameters are in `config.json` next to `main.py`. Important keys:
 - `paths.output_directory` — Where CSVs, plots, and models are written.
 - `paths.output_features_csv` — Path for the extracted features CSV.
 - `feature_params` — Controls feature extraction (LBP points/radius, GLCM levels, `gabor_frequencies`, `gabor_angles`, `use_otsu`, channel thresholds).
-- `analysis_params` — Model & CV settings (`cv_folds`, `random_state`, `rf_params`), `max_nan_fraction` (fraction above which a column is dropped before imputation; default 0.5), and optionally `pca_components` (number of PCA components; defaults to min(10, features.shape[1])).
+- `feature_insights_params` — Controls `top_features_count` for number of features to analyze
 
 Modify these values to tune extraction and modeling without editing code.
 
@@ -84,8 +84,8 @@ All scripts follow PEP 8 standards with type hints, comprehensive docstrings, an
 - `confusion_matrix.png` — Confusion matrix for classifier predictions.
 - `classification_report.json` — Classification metrics from cross-validated predictions.
 - `feature_importances.csv` — Feature importances from the RandomForest base learner.
-- `feature_importances.png` — Bar plot of top feature importances.
-- `top_10_features_combined_insights.png` — Advanced feature insights with categorized plots and trendlines.
+- `feature_importances.png` — Bar plot of top N feature importances (configurable).
+- `top_N_features_combined_insights.png` — Advanced feature insights with categorized plots and trendlines (N is configurable).
 - `model.joblib`, `pca.joblib`, `preprocessor.joblib` — Saved model and preprocessing artifacts.
 
 ## Predicting on New Data
@@ -109,6 +109,7 @@ py -3 scripts\load_model_bundle_and_predict.py --features "analysis_results\repo
 - **Modular Refactoring**: Separated analysis and training logic into dedicated modules for better maintainability.
 - **Feature Importance**: Added extraction and visualization of feature importances from RandomForest base learners.
 - **Feature Insights**: Implemented advanced feature analysis with categorized plots, trendlines, and statistical summaries.
+- **Configurable Analysis**: Made top features count configurable through `feature_insights_params.top_features_count`.
 - **Silent Operation**: Feature importance and insights analysis now run silently (no console output) for automated workflows.
 - **Automatic Config Detection**: Searches for `config.json` in the project root and parent directories.
 - **Mandatory Cleaning**: Feature cleaning is now a required step in the pipeline with robust error handling.

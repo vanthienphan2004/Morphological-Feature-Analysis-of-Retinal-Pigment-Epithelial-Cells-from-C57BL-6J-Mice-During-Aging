@@ -7,7 +7,7 @@ generating insights and visualizations for each feature.
 
 import json
 from pathlib import Path
-from typing import Optional, Tuple, Dict, List
+from typing import Optional, Tuple, Dict, List, Any
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
@@ -19,7 +19,8 @@ from analysis import resolve_output_dirs
 def extract_and_save_feature_importances(
     trained_model: object,
     feature_names: list,
-    output_directory: str
+    output_directory: str,
+    config: Optional[Dict[str, Any]] = None
 ) -> None:
     """
     Extract feature importances from RandomForest base learners in stacking model
@@ -29,6 +30,7 @@ def extract_and_save_feature_importances(
         trained_model: Trained stacking model.
         feature_names: List of feature names.
         output_directory: Output directory path.
+        config: Configuration dictionary (optional).
     """
     base_path = Path(__file__).resolve().parent
     output_root, reports_dir, models_dir, plots_dir = resolve_output_dirs(base_path)
@@ -42,6 +44,9 @@ def extract_and_save_feature_importances(
             plots_dir.mkdir(parents=True, exist_ok=True)
     except Exception:
         pass
+
+    # Get top features count from config, default to 10
+    top_features_count = config.get('feature_insights_params', {}).get('top_features_count', 10) if config else 10
 
     importances = None
     rf_estimator = None
@@ -87,7 +92,7 @@ def extract_and_save_feature_importances(
 
     # Create visualization
     plt.figure(figsize=(12, 8))
-    top_features = feature_importance_df.head(10)  # Show top 10 features
+    top_features = feature_importance_df.head(top_features_count)  # Show top N features
     plt.barh(
         range(len(top_features)),
         top_features['importance'],
@@ -100,7 +105,7 @@ def extract_and_save_feature_importances(
     )
     plt.xlabel('Feature Importance')
     plt.ylabel('Features')
-    plt.title('Top 10 Feature Importances (RandomForest)')
+    plt.title(f'Top {top_features_count} Feature Importances (RandomForest)')
     plt.gca().invert_yaxis()  # Highest importance at top
     plt.tight_layout()
     plt.savefig(plots_dir / 'feature_importances.png', dpi=300, bbox_inches='tight')
@@ -145,12 +150,13 @@ def categorize_features(features: List[str]) -> Dict[str, List[str]]:
     return {k: v for k, v in categories.items() if v}
 
 
-def analyze_top_features(output_directory: Optional[str] = None) -> None:
+def analyze_top_features(output_directory: Optional[str] = None, config: Optional[Dict[str, Any]] = None) -> None:
     """
-    Analyze and visualize the top 10 important features with scatter plots and trendlines.
+    Analyze and visualize the top N important features with scatter plots and trendlines.
 
     Args:
         output_directory: Optional output directory path.
+        config: Configuration dictionary (optional).
     """
     base_path = Path(__file__).resolve().parent
     output_root, reports_dir, models_dir, plots_dir = resolve_output_dirs(base_path)
@@ -165,6 +171,9 @@ def analyze_top_features(output_directory: Optional[str] = None) -> None:
         except Exception:
             pass
 
+    # Get top features count from config, default to 10
+    top_features_count = config.get('feature_insights_params', {}).get('top_features_count', 10) if config else 10
+
     # Load feature importances
     feature_importances_path = reports_dir / 'feature_importances.csv'
     if not feature_importances_path.exists():
@@ -172,7 +181,7 @@ def analyze_top_features(output_directory: Optional[str] = None) -> None:
         return
 
     feature_importances_df = pd.read_csv(feature_importances_path)
-    top_10_features = feature_importances_df.head(10)['feature'].tolist()
+    top_features = feature_importances_df.head(top_features_count)['feature'].tolist()
 
     # Load cleaned features data
     cleaned_features_path = reports_dir / 'rpe_extracted_features_cleaned.csv'
@@ -188,7 +197,7 @@ def analyze_top_features(output_directory: Optional[str] = None) -> None:
         return
 
     # Categorize features
-    categories = categorize_features(top_10_features)
+    categories = categorize_features(top_features)
     
     # Create a combined plot
     num_categories = len(categories)
@@ -238,11 +247,11 @@ def analyze_top_features(output_directory: Optional[str] = None) -> None:
         ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    combined_plot_path = plots_dir / 'top_10_features_combined_insights.png'
+    combined_plot_path = plots_dir / f'top_{top_features_count}_features_combined_insights.png'
     plt.savefig(combined_plot_path, dpi=300, bbox_inches='tight')
     plt.close()
     
-    print(f"Saved combined insights plot to {combined_plot_path}")
+    # print(f"Saved combined insights plot to {combined_plot_path}")
 
     print(f"\nFeature insights analysis completed. Combined plot saved to {plots_dir}")
 

@@ -126,11 +126,11 @@ def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
 
     # 7) Extract and save feature importances
     print('Extracting feature importances...')
-    extract_and_save_feature_importances(model, list(features_for_modeling.columns), str(out_root))
+    extract_and_save_feature_importances(model, list(features_for_modeling.columns), str(out_root), config)
 
     # 8) Feature insights analysis
     print('Running feature insights analysis...')
-    analyze_top_features(str(out_root))
+    analyze_top_features(str(out_root), config)
 
 # Note: config file path is provided explicitly via CLI or falls back to the
 # workspace absolute path supplied by the user. We intentionally do not search
