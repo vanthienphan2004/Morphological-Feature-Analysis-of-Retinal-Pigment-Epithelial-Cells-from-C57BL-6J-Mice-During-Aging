@@ -8,7 +8,7 @@
         "cv_folds": 5,
         "random_state": 42,
         "max_nan_fraction": 0.5,
-        "pca_components": null,
+        "pca_components": 3,
         "rf_params": {
             "n_estimators": 200,
             "max_depth": null
@@ -26,7 +26,7 @@
         "gabor_angles": [0, 0.7853981633974483, 1.5707963267948966]
     },
     "feature_insights_params": {
-        "top_features_count": 10
+        "top_features_count": 20
     }
 }
 

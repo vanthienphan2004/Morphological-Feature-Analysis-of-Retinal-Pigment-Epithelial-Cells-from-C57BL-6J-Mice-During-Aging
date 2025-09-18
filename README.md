@@ -9,7 +9,7 @@ This README provides a concise project overview, installation and usage instruct
 ## Project Summary
 
 - **Inputs**: Labeled folders of TIFF crops (per-image) or precomputed feature CSVs.
-- **Pipeline**: 8-step automated workflow (extraction → cleaning → CSV loading → PCA → training → feature importance → feature insights → artifacts).
+- **Pipeline**: 8-step automated workflow (extraction → cleaning → CSV loading → PCA → training → feature importance → violin plots → artifacts).
 - **Features**: Morphology, intensity stats, texture (LBP, GLCM-like), Gabor responses, and spatial measures (centroids, nearest neighbor, density).
 - **Processing**: Aggregates per-region measurements into per-image summaries (count, mean, median, std, min, max).
 - **Modeling**: Cleans data (inf→NaN), drops columns with excessive missingness, imputes (median), scales, runs PCA, trains a stacking classifier (RandomForest + XGBoost/HistGradientBoosting, logistic meta-learner), extracts feature importances, and generates advanced feature insights.
@@ -32,7 +32,7 @@ pip install -r requirements.txt
 py -3 -u .\main.py -c .\config.json -v
 ```
 
-This will run the complete 8-step pipeline: extract features, clean and preprocess them, load cleaned data from CSV, perform PCA, train the model, extract feature importances, perform feature insights analysis, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
+This will run the complete 8-step pipeline: extract features, clean and preprocess them, load cleaned data from CSV, perform PCA, train the model, extract feature importances, create violin plots, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
 
 ## Pipeline Overview
 
@@ -44,7 +44,7 @@ The automated pipeline consists of 8 steps:
 4. **PCA Analysis**: Performs PCA and generates visualization plots.
 5. **Model Training**: Trains stacking classifier (RandomForest + XGBoost/HistGradientBoosting).
 6. **Feature Importance**: Extracts and visualizes top feature importances from the trained model.
-7. **Feature Insights**: Performs advanced feature analysis with categorized plots and trendlines.
+7. **Feature Insights**: Creates violin plots with trendlines for top features across age groups.
 8. **Save Artifacts**: Saves model bundle, preprocessing objects, reports, and plots.
 
 ## Configuration
@@ -68,7 +68,7 @@ Modify these values to tune extraction and modeling without editing code.
   - `analysis.py` — Data cleaning, PCA, and visualization.
   - `clean_and_prepare.py` — Feature cleaning and preprocessing pipeline.
   - `feature_extraction.py` — Feature extraction from TIFF images.
-  - `feature_insights.py` — Feature importance extraction and advanced insights analysis with categorized plots.
+  - `feature_insights.py` — Feature importance extraction and violin plot generation with trendlines.
   - `train_and_save_pipeline.py` — Model training, artifact saving, and classification reports.
   - `load_model_bundle_and_predict.py` — Prediction on new data using saved models.
   - `timer.py` — Timing utilities for performance measurement.
@@ -85,7 +85,7 @@ All scripts follow PEP 8 standards with type hints, comprehensive docstrings, an
 - `classification_report.json` — Classification metrics from cross-validated predictions.
 - `feature_importances.csv` — Feature importances from the RandomForest base learner.
 - `feature_importances.png` — Bar plot of top N feature importances (configurable).
-- `top_N_features_combined_insights.png` — Advanced feature insights with categorized plots and trendlines (N is configurable).
+- `top_features_violin_plots.png` — Violin plots with trendlines comparing distributions of top features across age groups.
 - `model.joblib`, `pca.joblib`, `preprocessor.joblib` — Saved model and preprocessing artifacts.
 
 ## Predicting on New Data
@@ -108,12 +108,12 @@ py -3 scripts\load_model_bundle_and_predict.py --features "analysis_results\repo
 
 - **Modular Refactoring**: Separated analysis and training logic into dedicated modules for better maintainability.
 - **Feature Importance**: Added extraction and visualization of feature importances from RandomForest base learners.
-- **Feature Insights**: Implemented advanced feature analysis with categorized plots, trendlines, and statistical summaries.
-- **Configurable Analysis**: Made top features count configurable through `feature_insights_params.top_features_count`.
-- **Silent Operation**: Feature importance and insights analysis now run silently (no console output) for automated workflows.
+- **Dynamic Violin Plots**: Implemented configurable violin plots with trendlines for top N features (configurable via `feature_insights_params.top_features_count`).
+- **Automatic Grid Layout**: Violin plots automatically adjust grid size (1×2, 2×2, 2×3, 3×3, or 4×4) based on number of features.
+- **Configurable Analysis**: Made top features count fully configurable through `feature_insights_params.top_features_count`.
+- **Enhanced Visualizations**: Added trendlines with R² statistics to violin plots for comprehensive feature exploration.
 - **Automatic Config Detection**: Searches for `config.json` in the project root and parent directories.
-- **Mandatory Cleaning**: Feature cleaning is now a required step in the pipeline with robust error handling.
-- **Enhanced Documentation**: Updated README with comprehensive module descriptions and current functionality.
+- **Code Cleanup**: Removed unused functions and cleaned up documentation for better maintainability.
 
 ## License
 

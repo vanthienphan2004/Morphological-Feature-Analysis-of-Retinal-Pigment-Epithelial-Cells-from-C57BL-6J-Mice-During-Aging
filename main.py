@@ -1,15 +1,9 @@
 """
 Main script for RPE image analysis pipeline.
 
-This script orchestrates the full pipeline: feature extract    # 6) Save artifacts and reports
-    print('Saving artifacts and reports...')
-    save_artifacts(preproc, pca, model, str(out_root))
-    save_classification_report(labels_for_modeling, model.predict(features_for_modeling), str(out_root), training_metrics=training_report)
-
-    # 7) Extract and save feature importances
-    print('Extracting feature importances...')
-    extract_and_save_feature_importances(model, list(features_for_modeling.columns), str(out_root)) data cleaning,
-loading cleaned data from CSV, PCA, model training, and artifact saving based on a configuration file.
+This script orchestrates the full pipeline: feature extraction, data cleaning,
+loading cleaned data from CSV, PCA, model training, and artifact saving based
+on a configuration file.
 """
 
 import json
@@ -31,14 +25,16 @@ from scripts.analysis import (
     plot_pca_cumulative,
     plot_pca_scatter,
     resolve_output_dirs,
-    
 )
 from scripts.train_and_save_pipeline import (
     train_stacking,
     save_artifacts,
     save_classification_report,
 )
-from scripts.feature_insights import analyze_top_features, extract_and_save_feature_importances
+from scripts.feature_insights import (
+    extract_and_save_feature_importances,
+    create_violin_plots
+)
 
 
 def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
@@ -53,6 +49,7 @@ def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
     5. Training stacking classifier
     6. Save artifacts and reports
     7. Extract and save feature importances
+    8. Create violin plots
 
     Args:
         config: Configuration dictionary containing paths and parameters.
@@ -128,9 +125,9 @@ def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
     print('Extracting feature importances...')
     extract_and_save_feature_importances(model, list(features_for_modeling.columns), str(out_root), config)
 
-    # 8) Feature insights analysis
-    print('Running feature insights analysis...')
-    analyze_top_features(str(out_root), config)
+    # 8) Additional visualization plots
+    print('Creating violin plots...')
+    create_violin_plots(str(out_root), config)
 
 # Note: config file path is provided explicitly via CLI or falls back to the
 # workspace absolute path supplied by the user. We intentionally do not search
