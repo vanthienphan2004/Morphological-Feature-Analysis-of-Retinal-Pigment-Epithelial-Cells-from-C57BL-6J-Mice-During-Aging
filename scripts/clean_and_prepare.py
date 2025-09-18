@@ -4,7 +4,6 @@ Clean and prepare module for RPE image data preprocessing.
 This module provides the clean_and_prepare function for data cleaning and preprocessing.
 """
 
-import json
 from pathlib import Path
 from typing import Tuple, Dict, Any
 import numpy as np

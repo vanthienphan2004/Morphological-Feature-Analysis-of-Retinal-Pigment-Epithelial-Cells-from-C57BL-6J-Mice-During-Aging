@@ -6,7 +6,6 @@ from retinal pigment epithelial (RPE) cell images, including intensity statistic
 shape properties, texture features (LBP, GLCM, Gabor), and nuclear features.
 """
 
-import json
 from typing import Any, Dict, List
 import numpy as np
 import pandas as pd

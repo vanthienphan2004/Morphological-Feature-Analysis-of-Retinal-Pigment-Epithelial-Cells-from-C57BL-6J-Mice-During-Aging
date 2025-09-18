@@ -33,30 +33,33 @@ def train_stacking(features: pd.DataFrame, labels: pd.Series, config: Dict[str, 
     Returns:
         Tuple of trained model and training metrics.
     """
+    rf_params = config.get('rf_params', {})
     rf_estimator = RandomForestClassifier(
-        n_estimators=int(config.get('rf_n_estimators', 100)),
-        random_state=42
+        n_estimators=int(rf_params.get('n_estimators', 200)),
+        max_depth=rf_params.get('max_depth'),  # None means unlimited depth
+        random_state=int(config.get('random_state', 42))
     )
     estimators_list = [('rf', rf_estimator)]
     final_estimator = RandomForestClassifier(
-        n_estimators=int(config.get('final_n_estimators', 200)),
-        random_state=42
+        n_estimators=int(rf_params.get('n_estimators', 200)),
+        max_depth=rf_params.get('max_depth'),  # None means unlimited depth
+        random_state=int(config.get('random_state', 42))
     )
     stacking_model = StackingClassifier(
         estimators=estimators_list,
         final_estimator=final_estimator,
-        cv=5
+        cv=int(config.get('cv_folds', 5))
     )
 
     features_train, features_test, labels_train, labels_test = train_test_split(
         features, labels,
         test_size=float(config.get('test_size', 0.2)),
-        random_state=42,
+        random_state=int(config.get('random_state', 42)),
         stratify=labels
     )
     stacking_model.fit(features_train, labels_train)
 
-    cross_val_scores = cross_val_score(stacking_model, features_train, labels_train, cv=5)
+    cross_val_scores = cross_val_score(stacking_model, features_train, labels_train, cv=int(config.get('cv_folds', 5)))
     training_report = {
         'cv_mean_score': float(np.mean(cross_val_scores)),
         'cv_std_score': float(np.std(cross_val_scores)),

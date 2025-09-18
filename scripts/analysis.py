@@ -69,10 +69,10 @@ def run_pca(features: pd.DataFrame, config: Dict[str, Any]) -> Tuple[PCA, pd.Dat
     Returns:
         Tuple of PCA object and transformed features DataFrame.
     """
-    # Handle pca_components: if None or not specified, use min(10, number of features)
+    # Handle pca_components: if None or not specified, use number of features
     pca_components = config.get('pca_components')
     if pca_components is None:
-        num_components = min(10, features.shape[1])
+        num_components = features.shape[1]
     else:
         num_components = int(pca_components)
     
