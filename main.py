@@ -31,13 +31,14 @@ from scripts.analysis import (
     plot_pca_cumulative,
     plot_pca_scatter,
     resolve_output_dirs,
-    extract_and_save_feature_importances,
+    
 )
 from scripts.train_and_save_pipeline import (
     train_stacking,
     save_artifacts,
     save_classification_report,
 )
+from scripts.feature_insights import analyze_top_features, extract_and_save_feature_importances
 
 
 def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
@@ -127,7 +128,9 @@ def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
     print('Extracting feature importances...')
     extract_and_save_feature_importances(model, list(features_for_modeling.columns), str(out_root))
 
-
+    # 8) Feature insights analysis
+    print('Running feature insights analysis...')
+    analyze_top_features(str(out_root))
 
 # Note: config file path is provided explicitly via CLI or falls back to the
 # workspace absolute path supplied by the user. We intentionally do not search

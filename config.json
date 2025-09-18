@@ -1,8 +1,8 @@
 {
     "paths": {
-        "image_directory": "Z:/GSU/CASA/Math Path 2/Good RPE Crops",
-    "output_directory": "D:/Morphological-Feature-Analysis-of-Retinal-Pigment-Epithelial-Cells-from-C57BL-6J-Mice-During-Aging/analysis_results",
-    "output_features_csv": "D:/Morphological-Feature-Analysis-of-Retinal-Pigment-Epithelial-Cells-from-C57BL-6J-Mice-During-Aging/analysis_results/reports/rpe_extracted_features.csv"
+        "image_directory": "D:/GSU/CASA/Math Path 2/Good RPE Crops",
+    "output_directory": "D:/GSU/CASA/Math Path 2/Code for RPE Crops/Morphological Feature Analysis of Retinal Pigment Epithelial Cell from C57BL6J Mice during Aging/analysis_results",
+    "output_features_csv": "D:/GSU/CASA/Math Path 2/Code for RPE Crops/Morphological Feature Analysis of Retinal Pigment Epithelial Cell from C57BL6J Mice during Aging/analysis_results/reports/rpe_extracted_features.csv"
     },
     "analysis_params": {
         "cv_folds": 5,
