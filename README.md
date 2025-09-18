@@ -9,11 +9,11 @@ This README provides a concise project overview, installation and usage instruct
 ## Project Summary
 
 - **Inputs**: Labeled folders of TIFF crops (per-image) or precomputed feature CSVs.
-- **Pipeline**: 7-step automated workflow (extraction → cleaning → CSV loading → PCA → training → feature importance → artifacts).
+- **Pipeline**: 8-step automated workflow (extraction → cleaning → CSV loading → PCA → training → feature importance → feature insights → artifacts).
 - **Features**: Morphology, intensity stats, texture (LBP, GLCM-like), Gabor responses, and spatial measures (centroids, nearest neighbor, density).
 - **Processing**: Aggregates per-region measurements into per-image summaries (count, mean, median, std, min, max).
-- **Modeling**: Cleans data (inf→NaN), drops columns with excessive missingness, imputes (median), scales, runs PCA, trains a stacking classifier (RandomForest + XGBoost/HistGradientBoosting, logistic meta-learner), and extracts feature importances.
-- **Outputs**: Cleaned/raw features CSV, PCA plots, confusion matrix, JSON report, feature importance CSV and plot, and a saved model bundle for reproducible prediction.
+- **Modeling**: Cleans data (inf→NaN), drops columns with excessive missingness, imputes (median), scales, runs PCA, trains a stacking classifier (RandomForest + XGBoost/HistGradientBoosting, logistic meta-learner), extracts feature importances, and generates advanced feature insights.
+- **Outputs**: Cleaned/raw features CSV, PCA plots, confusion matrix, JSON report, feature importance CSV and plot, feature insights plots, and a saved model bundle for reproducible prediction.
 
 ## Quick Start (Windows PowerShell)
 
@@ -32,11 +32,11 @@ pip install -r requirements.txt
 py -3 -u .\main.py -c .\config.json -v
 ```
 
-This will run the complete 7-step pipeline: extract features, clean and preprocess them, load cleaned data from CSV, perform PCA, train the model, extract feature importances, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
+This will run the complete 8-step pipeline: extract features, clean and preprocess them, load cleaned data from CSV, perform PCA, train the model, extract feature importances, perform feature insights analysis, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
 
 ## Pipeline Overview
 
-The automated pipeline consists of 7 steps:
+The automated pipeline consists of 8 steps:
 
 1. **Feature Extraction**: Extracts morphological, texture, and intensity features from TIFF images.
 2. **Clean & Prepare**: Cleans data, handles missing values, imputes, scales, and saves cleaned CSV.
@@ -44,7 +44,8 @@ The automated pipeline consists of 7 steps:
 4. **PCA Analysis**: Performs PCA and generates visualization plots.
 5. **Model Training**: Trains stacking classifier (RandomForest + XGBoost/HistGradientBoosting).
 6. **Feature Importance**: Extracts and visualizes top feature importances from the trained model.
-7. **Save Artifacts**: Saves model bundle, preprocessing objects, reports, and plots.
+7. **Feature Insights**: Performs advanced feature analysis with categorized plots and trendlines.
+8. **Save Artifacts**: Saves model bundle, preprocessing objects, reports, and plots.
 
 ## Configuration
 
@@ -60,13 +61,18 @@ Modify these values to tune extraction and modeling without editing code.
 
 ## Files and Scripts
 
-- `main.py` — **Main entrypoint**. Orchestrates the complete 7-step pipeline.
+- `main.py` — **Main entrypoint**. Orchestrates the complete 8-step pipeline.
 - `config.json` — Runtime configuration (paths, feature params, analysis params).
 - `requirements.txt` — Python dependencies.
 - `scripts/` — Modular scripts for specific functionality:
-  - `analysis.py` — Data cleaning, PCA, visualization, and feature importance extraction/plotting.
+  - `analysis.py` — Data cleaning, PCA, and visualization.
+  - `clean_and_prepare.py` — Feature cleaning and preprocessing pipeline.
+  - `feature_extraction.py` — Feature extraction from TIFF images.
+  - `feature_insights.py` — Feature importance extraction and advanced insights analysis with categorized plots.
   - `train_and_save_pipeline.py` — Model training, artifact saving, and classification reports.
-- Other files: Various analysis and visualization scripts (e.g., `PCA Clustering.py`, `Features_Extraction.py`).
+  - `load_model_bundle_and_predict.py` — Prediction on new data using saved models.
+  - `timer.py` — Timing utilities for performance measurement.
+  - `visualize_channels.py` — Channel visualization utilities.
 
 All scripts follow PEP 8 standards with type hints, comprehensive docstrings, and robust error handling.
 
@@ -79,6 +85,7 @@ All scripts follow PEP 8 standards with type hints, comprehensive docstrings, an
 - `classification_report.json` — Classification metrics from cross-validated predictions.
 - `feature_importances.csv` — Feature importances from the RandomForest base learner.
 - `feature_importances.png` — Bar plot of top feature importances.
+- `top_10_features_combined_insights.png` — Advanced feature insights with categorized plots and trendlines.
 - `model.joblib`, `pca.joblib`, `preprocessor.joblib` — Saved model and preprocessing artifacts.
 
 ## Predicting on New Data
@@ -99,10 +106,13 @@ py -3 scripts\load_model_bundle_and_predict.py --features "analysis_results\repo
 
 ## Recent Updates
 
-- **Modular Refactoring**: Separated analysis and training logic into dedicated modules.
-- **Feature Importance**: Added extraction and visualization of feature importances.
-- **Automatic Config Detection**: Searches for `config.json` in the project root.
-- **Mandatory Cleaning**: Feature cleaning is now a required step in the pipeline.
+- **Modular Refactoring**: Separated analysis and training logic into dedicated modules for better maintainability.
+- **Feature Importance**: Added extraction and visualization of feature importances from RandomForest base learners.
+- **Feature Insights**: Implemented advanced feature analysis with categorized plots, trendlines, and statistical summaries.
+- **Silent Operation**: Feature importance and insights analysis now run silently (no console output) for automated workflows.
+- **Automatic Config Detection**: Searches for `config.json` in the project root and parent directories.
+- **Mandatory Cleaning**: Feature cleaning is now a required step in the pipeline with robust error handling.
+- **Enhanced Documentation**: Updated README with comprehensive module descriptions and current functionality.
 
 ## License
 
