@@ -70,7 +70,6 @@ def load_config_constants() -> Dict[str, Any]:
         'max_depth': rf_params.get('max_depth'),
     }
 
-    print(f"Configuration constants: {constants}")
     return constants
 
 
@@ -147,8 +146,7 @@ def train_stacking(
     stacking_model = StackingClassifier(
         estimators=base_estimators,
         final_estimator=final_estimator,
-        cv=cv_folds,
-        random_state=random_state
+        cv=cv_folds
     )
 
     # Split data into training and testing sets

@@ -9,6 +9,7 @@ and trendline analysis.
 import json
 from pathlib import Path
 from typing import Optional, Tuple, Dict, List, Any
+import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
@@ -25,8 +26,11 @@ def extract_and_save_feature_importances(
     config: Optional[Dict[str, Any]] = None
 ) -> None:
     """
-    Extract feature importances from RandomForest base learners in stacking model
+    Extract feature importances from boosting algorithm base learners in stacking model
     and save to CSV and plot.
+
+    Supports XGBoost, LightGBM, CatBoost, and RandomForest estimators.
+    Falls back to coefficient-based importance for linear final estimators.
 
     Args:
         trained_model: Trained stacking model.
@@ -51,34 +55,69 @@ def extract_and_save_feature_importances(
     top_features_count = config.get('feature_insights_params', {}).get('top_features_count', 10) if config else 10
 
     importances = None
-    rf_estimator = None
+    estimator_name = None
+    all_importances = {}  # Store all available feature importances
 
-    # Try to find RandomForest base learner in stacking model
+    # Try to find all boosting algorithm base learners in stacking model
     try:
         if hasattr(trained_model, 'named_estimators_'):
             named_estimators = trained_model.named_estimators_
-            # Look for RandomForest in named estimators
+            # Collect feature importances from all boosting algorithms
             for name, estimator in named_estimators.items():
                 if hasattr(estimator, 'feature_importances_'):
-                    rf_estimator = estimator
-                    break
+                    all_importances[name] = estimator.feature_importances_
+                    print(f"Found feature importances from {name} estimator")
 
         # If not found in named_estimators, check estimators_ attribute
-        if rf_estimator is None and hasattr(trained_model, 'estimators_'):
-            for estimator in trained_model.estimators_:
+        if not all_importances and hasattr(trained_model, 'estimators_'):
+            for i, estimator in enumerate(trained_model.estimators_):
                 if hasattr(estimator, 'feature_importances_'):
-                    rf_estimator = estimator
-                    break
+                    all_importances[f"estimator_{i}"] = estimator.feature_importances_
+                    print(f"Found feature importances from estimator_{i}")
 
-        # Extract feature importances if RandomForest found
-        if rf_estimator is not None and hasattr(rf_estimator, 'feature_importances_'):
-            importances = rf_estimator.feature_importances_
+        # Alternative: Try to get feature importances from the final estimator
+        if not all_importances and hasattr(trained_model, 'final_estimator_'):
+            final_estimator = trained_model.final_estimator_
+            if hasattr(final_estimator, 'coef_'):
+                # For linear models, use absolute coefficient values as importance
+                all_importances["final_estimator"] = np.abs(final_estimator.coef_[0])
+                print("Using coefficient-based feature importances from final estimator")
+            elif hasattr(final_estimator, 'feature_importances_'):
+                all_importances["final_estimator"] = final_estimator.feature_importances_
+                print("Found feature importances from final estimator")
+
+        # Decide which importance to use
+        if all_importances:
+            if len(all_importances) == 1:
+                # Only one source available
+                estimator_name, importances = next(iter(all_importances.items()))
+                print(f"Using feature importances from {estimator_name}")
+            else:
+                # Multiple sources available - use ensemble approach
+                print(f"Found {len(all_importances)} sources of feature importance: {list(all_importances.keys())}")
+
+                # Average all available importances (ensemble approach)
+                importance_arrays = list(all_importances.values())
+                importances = np.mean(importance_arrays, axis=0)
+                estimator_name = "ensemble_average"
+                print("Using ensemble-averaged feature importances from all available estimators")
+
+                # Optionally save individual importances for comparison
+                for name, imp in all_importances.items():
+                    individual_df = pd.DataFrame({
+                        'feature': feature_names,
+                        'importance': imp
+                    })
+                    individual_df = individual_df.sort_values('importance', ascending=False)
+                    individual_df.to_csv(reports_dir / f'feature_importances_{name}.csv', index=False)
+                    print(f"Saved individual feature importances to {reports_dir / f'feature_importances_{name}.csv'}")
 
     except Exception as e:
         print(f"Warning: Could not extract feature importances: {e}")
 
     if importances is None:
-        print("No RandomForest feature importances found in stacking model; skipping feature_importances.csv")
+        print("No feature importances found in stacking model; skipping feature_importances.csv")
+        print("Consider using permutation importance for model interpretability.")
         return
 
     # Create feature importance DataFrame
@@ -107,7 +146,7 @@ def extract_and_save_feature_importances(
     )
     plt.xlabel('Feature Importance')
     plt.ylabel('Features')
-    plt.title(f'Top {top_features_count} Feature Importances (RandomForest)')
+    plt.title(f'Top {top_features_count} Feature Importances ({estimator_name or "Model"})')
     plt.gca().invert_yaxis()  # Highest importance at top
     plt.tight_layout()
     plt.savefig(plots_dir / 'feature_importances.png', dpi=300, bbox_inches='tight')
