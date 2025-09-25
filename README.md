@@ -1,19 +1,23 @@
 # Morphological Feature Analysis of Retinal Pigment Epithelial Cells from C57BL/6J Mice during Aging
 
-A configuration-driven Python application for extracting, aggregating, and analyzing features from Retinal Pigment Epithelium (RPE) image crops. The pipeline produces cleaned feature tables, PCA visualizations, supervised classification (RandomForest stacking ensemble), feature importance analysis, and reproducible model artifacts.
+A configuration-driven Python application for extracting, aggregating, and analyzing morphological features from Retinal Pigment Epithelium (RPE) image crops. The pipeline produces cleaned feature tables, trains a stacking ensemble classifier (XGBoost + LightGBM + CatBoost), performs feature importance analysis, and generates reproducible model artifacts.
 
 The codebase is written in clean, maintainable Python following PEP 8 standards, with comprehensive docstrings, type hints, and robust error handling.
 
-This README provides a concise project overview, installation and usage instructions, configuration notes, and a quick reference for the included scripts and outputs.
+**Version**: 1.0.0  
+**Last Updated**: September 25, 2025  
+**License**: MIT
+
+This README provides a comprehensive project overview, installation and usage instructions, configuration notes, and a quick reference for all included scripts and outputs.
 
 ## Project Summary
 
-- **Inputs**: Labeled folders of TIFF crops (per-image) or precomputed feature CSVs.
-- **Pipeline**: 8-step automated workflow (extraction → cleaning → CSV loading → PCA → training → artifacts → feature importance → violin plots).
-- **Features**: Morphology, intensity stats, texture (LBP, GLCM, Gabor responses), nuclear features from red channel, and spatial measures (centroids, nearest neighbor, density).
-- **Processing**: Aggregates per-region measurements into per-image summaries (count, mean, median, std, min, max).
-- **Modeling**: Cleans data (inf→NaN), drops columns with excessive missingness, imputes (median), scales, runs PCA, trains a RandomForest stacking classifier, extracts feature importances, and generates advanced feature insights.
-- **Outputs**: Cleaned/raw features CSV, PCA plots, confusion matrix, JSON report, feature importance CSV and plot, feature insights plots, and a saved model bundle for reproducible prediction.
+- **Inputs**: Labeled folders of TIFF image crops (per-image) or precomputed feature CSVs
+- **Pipeline**: 7-step automated workflow (extraction → cleaning → CSV loading → training → artifacts → feature importance → violin plots)
+- **Features**: 133+ morphological features including shape, intensity stats, texture (LBP, GLCM, Gabor), nuclear features, and spatial measures
+- **Processing**: Aggregates per-region measurements into per-image summaries (count, mean, median, std, min, max)
+- **Modeling**: Cleans data (inf→NaN), drops columns with excessive missingness, imputes (median), scales, trains a stacking ensemble (XGBoost + LightGBM + CatBoost with LogisticRegression meta-learner), extracts feature importances, and generates advanced feature insights
+- **Outputs**: Cleaned/raw features CSV, confusion matrix, JSON classification report, feature importance CSV and plot, feature insights plots, and saved model bundle for reproducible prediction
 
 ## Quick Start (Windows PowerShell)
 
@@ -32,20 +36,19 @@ pip install -r requirements.txt
 py -3 -u .\main.py -c .\config.json -v
 ```
 
-This will run the complete 8-step pipeline: extract features, clean and preprocess them, load cleaned data from CSV, perform PCA, train the model, extract feature importances, create violin plots, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
+This will run the complete 7-step pipeline: extract features, clean and preprocess them, load cleaned data from CSV, train the model, extract feature importances, create violin plots, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
 
 ## Pipeline Overview
 
-The automated pipeline consists of 8 steps:
+The automated pipeline consists of 7 steps:
 
 1. **Feature Extraction**: Extracts morphological, texture, and intensity features from TIFF images using configurable parameters.
 2. **Clean & Prepare**: Cleans data, handles missing values, imputes, scales, and saves cleaned CSV.
 3. **Load Cleaned Data**: Loads the cleaned CSV to ensure consistency for all modeling steps.
-4. **PCA Analysis**: Performs PCA and generates visualization plots (scree, cumulative, scatter).
-5. **Model Training**: Trains RandomForest stacking classifier with cross-validation.
-6. **Save Artifacts**: Saves model bundle, preprocessing objects, reports, and plots.
-7. **Feature Importance**: Extracts and visualizes top feature importances from the trained RandomForest model.
-8. **Feature Insights**: Creates violin plots with trendlines for top N features across age groups.
+4. **Model Training**: Trains RandomForest stacking classifier with cross-validation.
+5. **Save Artifacts**: Saves model bundle, preprocessing objects, reports, and plots.
+6. **Feature Importance**: Extracts and visualizes top feature importances from the trained RandomForest model.
+7. **Feature Insights**: Creates violin plots with trendlines for top N features across age groups.
 
 ## Configuration
 
@@ -62,7 +65,6 @@ All runtime parameters are in `config.json` next to `main.py`. Key configuration
   - `random_state` — Random seed for reproducibility (default: 42).
   - `max_nan_fraction` — Maximum allowed NaN fraction for columns before dropping (default: 0.5).
   - `test_size` — Train/test split ratio (default: 0.2).
-  - `pca_components` — Number of PCA components (null = auto-determine).
   - `impute_strategy` — Imputation method (default: "median").
   - `rf_params` — RandomForest parameters (n_estimators, max_depth).
   - `target_column` — Name of target column (default: "label").
@@ -75,17 +77,40 @@ All runtime parameters are in `config.json` next to `main.py`. Key configuration
   - Channel thresholds for segmentation.
 - **`feature_insights_params`**:
 
-  - `top_features_count` — Number of top features to analyze (default: 4).
+  - `top_features_count` — Number of top features to analyze (default: 10).
 
 Modify these values to tune extraction and modeling without editing code.
 
+## Project Structure
+
+```
+Morphological-Feature-Analysis-of-Retinal-Pigment-Epithelial-Cells-from-C57BL-6J-Mice-During-Aging/
+├── .git/                          # Git repository
+├── .gitignore                     # Git ignore patterns
+├── analysis_results/              # Generated outputs (reports/, models/, plots/)
+├── config.json                    # Runtime configuration file
+├── main.py                        # Main entrypoint script
+├── Pipeline_Diagram.png           # Visual representation of the analysis pipeline
+├── README.md                      # This documentation
+├── requirements.txt               # Python dependencies
+└── scripts/                       # Modular analysis scripts
+    ├── directories.py             # Directory management utilities
+    ├── clean_and_prepare.py       # Data cleaning and preprocessing
+    ├── feature_extraction.py      # Feature extraction from images
+    ├── feature_insights.py        # Feature importance and visualization
+    ├── load_model_bundle_and_predict.py  # Prediction on new data
+    ├── timer.py                   # Performance timing utilities
+    ├── train_and_save_pipeline.py # Model training and artifact saving
+    └── visualize_channels.py      # Image channel visualization
+```
+
 ## Files and Scripts
 
-- `main.py` — **Main entrypoint**. Orchestrates the complete 8-step pipeline.
+- `main.py` — **Main entrypoint**. Orchestrates the complete 7-step pipeline.
 - `config.json` — Runtime configuration (paths, feature params, analysis params).
 - `requirements.txt` — Python dependencies.
 - `scripts/` — Modular scripts for specific functionality:
-  - `analysis.py` — Data cleaning, PCA, and visualization.
+  - `directories.py` — Directory management utilities.
   - `clean_and_prepare.py` — Feature cleaning and preprocessing pipeline.
   - `feature_extraction.py` — Feature extraction from TIFF images.
   - `feature_insights.py` — Feature importance extraction and violin plot generation with trendlines.
@@ -100,13 +125,12 @@ All scripts follow PEP 8 standards with type hints, comprehensive docstrings, an
 
 - **`reports/rpe_extracted_features.csv`** — Raw extracted features (one row per image).
 - **`reports/rpe_extracted_features_cleaned.csv`** — Cleaned + scaled features.
-- **`plots/pca_scree_plot.png`**, **`plots/pca_cumulative_plot.png`**, **`plots/pca_scatter_plot.png`** — PCA visualizations.
 - **`plots/confusion_matrix.png`** — Confusion matrix for classifier predictions.
 - **`reports/classification_report.json`** — Classification metrics from cross-validated predictions.
 - **`reports/feature_importances.csv`** — Feature importances from the RandomForest base learner.
 - **`plots/feature_importances.png`** — Bar plot of top N feature importances.
 - **`plots/top_features_violin_plots.png`** — Violin plots with trendlines comparing distributions of top features across age groups.
-- **`models/model.joblib`**, **`models/pca.joblib`**, **`models/preprocessor.joblib`** — Saved model and preprocessing artifacts.
+- **`models/model.joblib`**, **`models/preprocessor.joblib`** — Saved model and preprocessing artifacts.
 
 ## Predicting on New Data
 
@@ -120,10 +144,21 @@ This will load the saved model, preprocess the features using the saved preproce
 
 ## Troubleshooting & Tips
 
+- **Dependencies**: The project requires XGBoost, LightGBM, and CatBoost. On some systems, you may need to install these separately:
+  ```powershell
+  pip install xgboost lightgbm catboost
+  ```
+  
 - **Error Handling**: The code includes robust error handling for file I/O, image processing, and data operations.
+
 - **Configuration**: Ensure `paths.image_directory` points to the correct folder with readable TIFF files.
+
 - **Data Quality**: If many columns are dropped, lower `analysis_params.max_nan_fraction` or inspect the features CSV for missing values.
+
 - **Memory Usage**: For large image datasets, consider reducing `feature_params.glcm_levels` or `gabor_frequencies` arrays.
+
+- **Model Training**: The stacking ensemble uses 5-fold cross-validation by default. Adjust `cv_folds` for faster training or more robust validation.
+
 - **Code Quality**: All scripts follow PEP 8 with type hints and docstrings for maintainability.
 
 ## License

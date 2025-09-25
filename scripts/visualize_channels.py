@@ -148,7 +148,7 @@ def main() -> None:
         output_path = args.output
     else:
         # prefer centralized helper
-        from scripts.analysis import resolve_output_dirs
+        from scripts.directories import resolve_output_dirs
         base = Path(__file__).resolve().parents[1]
         _, _, _, plots_dir = resolve_output_dirs(base)
         output_path = str(plots_dir / 'example_channels.png')

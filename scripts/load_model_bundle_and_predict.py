@@ -1,4 +1,4 @@
-r"""
+"""
 Consolidated predictor script.
 
 Detects and supports three saved model forms:
@@ -16,7 +16,6 @@ Flags:
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any
 import joblib
 import pandas as pd
 import numpy as np
@@ -28,7 +27,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 
-from scripts.analysis import resolve_output_dirs
+from scripts.directories import resolve_output_dirs
 
 
 def main() -> None:

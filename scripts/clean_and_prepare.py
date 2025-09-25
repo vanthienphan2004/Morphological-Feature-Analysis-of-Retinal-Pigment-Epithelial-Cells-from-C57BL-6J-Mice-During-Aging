@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 import joblib
 
-from scripts.analysis import resolve_output_dirs
+from scripts.directories import resolve_output_dirs
 
 
 def clean_and_prepare(features_df: pd.DataFrame, config: Dict[str, Any]) -> Tuple[Tuple[pd.DataFrame, pd.Series], Pipeline]:

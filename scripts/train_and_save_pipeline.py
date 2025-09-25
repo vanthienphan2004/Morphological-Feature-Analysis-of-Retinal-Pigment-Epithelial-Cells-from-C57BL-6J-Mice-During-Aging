@@ -19,11 +19,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Scikit-learn imports
-from sklearn.ensemble import RandomForestClassifier, StackingClassifier
+from sklearn.ensemble import StackingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.decomposition import PCA
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 
 # Boosting library imports
@@ -189,21 +188,19 @@ def train_stacking(
 
 def save_artifacts(
     pipeline: Pipeline,
-    pca_model: PCA,
     trained_model: object,
     output_directory: str
 ) -> None:
     """
-    Save preprocessing pipeline, PCA model, and trained model to disk.
+    Save preprocessing pipeline and trained model to disk.
 
     Args:
         pipeline: Preprocessing pipeline (imputer + scaler).
-        pca_model: Fitted PCA model.
         trained_model: Trained machine learning model.
         output_directory: Base output directory path.
     """
     # Import here to avoid circular imports
-    from scripts.analysis import resolve_output_dirs
+    from scripts.directories import resolve_output_dirs
 
     # Resolve output directories
     base_path = Path(__file__).resolve().parent
@@ -231,9 +228,6 @@ def save_artifacts(
         joblib.dump(pipeline, models_dir / 'preprocessor.joblib')
         print(f"Saved preprocessor to {models_dir / 'preprocessor.joblib'}")
 
-        joblib.dump(pca_model, models_dir / 'pca.joblib')
-        print(f"Saved PCA model to {models_dir / 'pca.joblib'}")
-
         joblib.dump(trained_model, models_dir / 'model.joblib')
         print(f"Saved trained model to {models_dir / 'model.joblib'}")
 
@@ -257,7 +251,7 @@ def save_classification_report(
         training_metrics: Optional training performance metrics to include.
     """
     # Import here to avoid circular imports
-    from scripts.analysis import resolve_output_dirs
+    from scripts.directories import resolve_output_dirs
 
     # Resolve output directories
     base_path = Path(__file__).resolve().parent

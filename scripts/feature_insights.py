@@ -6,7 +6,6 @@ from trained models, and generating advanced feature insights with violin plots
 and trendline analysis.
 """
 
-import json
 from pathlib import Path
 from typing import Optional, Tuple, Dict, List, Any
 import numpy as np
@@ -16,7 +15,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import linregress
-from scripts.analysis import resolve_output_dirs
+from scripts.directories import resolve_output_dirs
 
 
 def extract_and_save_feature_importances(
@@ -192,8 +191,8 @@ def create_violin_plots(output_directory: Optional[str] = None, config: Optional
         print("No 'label' column found in features data. Cannot create violin plots.")
         return
 
-    # Get top features count from config, default to 4 for violin plots
-    top_features_count = config.get('feature_insights_params', {}).get('top_features_count', 4) if config else 4
+    # Get top features count from config, default to 10
+    top_features_count = config.get('feature_insights_params', {}).get('top_features_count', 10) if config else 10
 
     # Load top important features from feature importances
     feature_importances_path = reports_dir / 'feature_importances.csv'

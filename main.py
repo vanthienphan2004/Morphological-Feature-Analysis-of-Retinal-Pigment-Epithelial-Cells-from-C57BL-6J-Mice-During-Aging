@@ -2,7 +2,7 @@
 Main script for RPE image analysis pipeline.
 
 This script orchestrates the full pipeline: feature extraction, data cleaning,
-loading cleaned data from CSV, PCA, model training, and artifact saving based
+loading cleaned data from CSV, model training, and artifact saving based
 on a configuration file.
 """
 
@@ -11,19 +11,13 @@ from pathlib import Path
 import argparse
 import sys
 import traceback
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 import pandas as pd
-import joblib
-from sklearn.pipeline import Pipeline
 
 # feature extraction and analysis now live in scripts package
 from scripts.feature_extraction import extract_features_from_directory
 from scripts.clean_and_prepare import clean_and_prepare
-from scripts.analysis import (
-    run_pca,
-    plot_pca_scree,
-    plot_pca_cumulative,
-    plot_pca_scatter,
+from scripts.directories import (
     resolve_output_dirs,
 )
 from scripts.train_and_save_pipeline import (
@@ -45,11 +39,10 @@ def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
     1. Feature extraction from images
     2. Clean and prepare data (saves cleaned CSV)
     3. Load cleaned data from CSV
-    4. PCA for visualization
-    5. Training stacking classifier
-    6. Save artifacts and reports
-    7. Extract and save feature importances
-    8. Create violin plots
+    4. Training stacking classifier
+    5. Save artifacts and reports
+    6. Extract and save feature importances
+    7. Create violin plots
 
     Args:
         config: Configuration dictionary containing paths and parameters.
@@ -102,30 +95,21 @@ def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
     features_for_modeling = cleaned_df.drop(columns=[target_column])
     labels_for_modeling = cleaned_df[target_column].astype(str)
 
-    # 4) PCA for visualization
-    print('Running PCA analysis...')
-    pca, features_pca = run_pca(features_for_modeling, config.get('analysis_params', {}))
-    # pass the project output root to plotting/analysis helpers
-    plot_pca_scree(pca.explained_variance_ratio_, str(out_root))
-    plot_pca_cumulative(pca.explained_variance_ratio_, str(out_root))
-    if features_pca.shape[1] >= 2:
-        plot_pca_scatter(features_pca.values, labels_for_modeling, str(out_root))
-
-    # 5) Training
+    # 4) Training
     print('Training stacking classifier...')
     model, training_metrics = train_stacking(features_for_modeling, labels_for_modeling, config.get('analysis_params', {}))
     # Do not print the training report to terminal; it will be saved in the JSON report
 
-    # 6) Save artifacts and reports
+    # 5) Save artifacts and reports
     print('Saving artifacts and reports...')
-    save_artifacts(preproc, pca, model, str(out_root))
+    save_artifacts(preproc, model, str(out_root))
     save_classification_report(labels_for_modeling, model.predict(features_for_modeling), str(out_root), training_metrics=training_metrics)
 
-    # 7) Extract and save feature importances
+    # 6) Extract and save feature importances
     print('Extracting feature importances...')
     extract_and_save_feature_importances(model, list(features_for_modeling.columns), str(out_root), config)
 
-    # 8) Additional visualization plots
+    # 7) Additional visualization plots
     print('Creating violin plots...')
     create_violin_plots(str(out_root), config)
 

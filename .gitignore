@@ -1,5 +1,6 @@
 # Python virtual environment
 venv/
+.venv/
 /venv/
 
 # Python cache files
@@ -7,3 +8,26 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Analysis results (uncomment if you want to ignore these)
+# analysis_results/
