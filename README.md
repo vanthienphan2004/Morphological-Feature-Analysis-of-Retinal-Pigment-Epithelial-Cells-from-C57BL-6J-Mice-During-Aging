@@ -90,7 +90,6 @@ Morphological-Feature-Analysis-of-Retinal-Pigment-Epithelial-Cells-from-C57BL-6J
 ├── analysis_results/              # Generated outputs (reports/, models/, plots/)
 ├── config.json                    # Runtime configuration file
 ├── main.py                        # Main entrypoint script
-├── Pipeline_Diagram.png           # Visual representation of the analysis pipeline
 ├── README.md                      # This documentation
 ├── requirements.txt               # Python dependencies
 └── scripts/                       # Modular analysis scripts
