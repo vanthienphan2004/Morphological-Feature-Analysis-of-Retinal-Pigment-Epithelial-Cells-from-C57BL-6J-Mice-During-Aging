@@ -23,3 +23,7 @@ tqdm>=4.62.0
 
 # Specialized ML tools
 kneed>=0.8.0
+
+# Development tools
+black>=24.0.0
+pre-commit>=3.0.0

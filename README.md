@@ -5,7 +5,7 @@ A configuration-driven Python application for extracting, aggregating, and analy
 The codebase is written in clean, maintainable Python following PEP 8 standards, with comprehensive docstrings, type hints, and robust error handling.
 
 **Version**: 1.0.0  
-**Last Updated**: September 25, 2025  
+**Last Updated**: November 12, 2025  
 **License**: MIT
 
 This README provides a comprehensive project overview, installation and usage instructions, configuration notes, and a quick reference for all included scripts and outputs.
@@ -29,6 +29,20 @@ py -3 -m venv .venv
 pip install -r requirements.txt
 ```
 
+### Development Setup
+
+For development, install pre-commit hooks to ensure code quality:
+
+```powershell
+pip install pre-commit
+pre-commit install
+```
+
+This will run Black code formatting on commits.
+
+## Usage
+```
+
 2. Edit `config.json` to set `paths.image_directory`, `paths.output_directory`, and any feature or analysis parameters.
 3. Run the full pipeline (verbose):
 
@@ -45,9 +59,9 @@ The automated pipeline consists of 7 steps:
 1. **Feature Extraction**: Extracts morphological, texture, and intensity features from TIFF images using configurable parameters.
 2. **Clean & Prepare**: Cleans data, handles missing values, imputes, scales, and saves cleaned CSV.
 3. **Load Cleaned Data**: Loads the cleaned CSV to ensure consistency for all modeling steps.
-4. **Model Training**: Trains RandomForest stacking classifier with cross-validation.
+4. **Model Training**: Trains stacking ensemble classifier with cross-validation.
 5. **Save Artifacts**: Saves model bundle, preprocessing objects, reports, and plots.
-6. **Feature Importance**: Extracts and visualizes top feature importances from the trained RandomForest model.
+6. **Feature Importance**: Extracts and visualizes top feature importances from the trained ensemble model.
 7. **Feature Insights**: Creates violin plots with trendlines for top N features across age groups.
 
 ## Configuration
@@ -126,7 +140,7 @@ All scripts follow PEP 8 standards with type hints, comprehensive docstrings, an
 - **`reports/rpe_extracted_features_cleaned.csv`** — Cleaned + scaled features.
 - **`plots/confusion_matrix.png`** — Confusion matrix for classifier predictions.
 - **`reports/classification_report.json`** — Classification metrics from cross-validated predictions.
-- **`reports/feature_importances.csv`** — Feature importances from the RandomForest base learner.
+- **`reports/feature_importances.csv`** — Feature importances from the ensemble model.
 - **`plots/feature_importances.png`** — Bar plot of top N feature importances.
 - **`plots/top_features_violin_plots.png`** — Violin plots with trendlines comparing distributions of top features across age groups.
 - **`models/model.joblib`**, **`models/preprocessor.joblib`** — Saved model and preprocessing artifacts.
