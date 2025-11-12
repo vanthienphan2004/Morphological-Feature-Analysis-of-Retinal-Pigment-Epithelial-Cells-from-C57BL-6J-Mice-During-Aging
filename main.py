@@ -27,7 +27,7 @@ from scripts.train_and_save_pipeline import (
 )
 from scripts.feature_insights import (
     extract_and_save_feature_importances,
-    create_violin_plots
+    create_violin_plots,
 )
 
 
@@ -52,43 +52,47 @@ def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
     out_root, reports_dir, models_dir, plots_dir = resolve_output_dirs(base)
 
     # 1) Feature extraction
-    image_directory = config.get('paths', {}).get('image_directory')
+    image_directory = config.get("paths", {}).get("image_directory")
     if not image_directory:
-        raise ValueError('image_directory must be set in config.paths')
+        raise ValueError("image_directory must be set in config.paths")
 
-    print('Extracting features...')
-    features_df = extract_features_from_directory(image_directory, config, verbose=verbose)
+    print("Extracting features...")
+    features_df = extract_features_from_directory(
+        image_directory, config, verbose=verbose
+    )
 
     # Determine where to save features CSV: use user-specified path if absolute,
     # otherwise place in <out_root>/reports/
-    user_csv = config.get('paths', {}).get('output_features_csv')
+    user_csv = config.get("paths", {}).get("output_features_csv")
     if user_csv and Path(user_csv).is_absolute():
         output_features_path = user_csv
     else:
-        output_features_path = str(reports_dir / 'extracted_features.csv')
+        output_features_path = str(reports_dir / "extracted_features.csv")
 
     try:
         features_df.to_csv(output_features_path, index=False)
     except Exception as exc:
         raise RuntimeError(f"Failed to save features CSV: {exc}") from exc
 
-    print(f'Features saved to {output_features_path} (n_samples={len(features_df)})')
+    print(f"Features saved to {output_features_path} (n_samples={len(features_df)})")
 
     # 2) Clean and prepare
-    print('Cleaning and preparing data...')
+    print("Cleaning and preparing data...")
     (features_clean, labels), preproc = clean_and_prepare(features_df, config)
 
     # 3) Load cleaned data from CSV for subsequent steps
-    print('Loading cleaned data from CSV...')
+    print("Loading cleaned data from CSV...")
     cleaned_csv_path = reports_dir / "rpe_extracted_features_cleaned.csv"
     try:
         cleaned_df = pd.read_csv(cleaned_csv_path)
-        print(f"Loaded cleaned data from {cleaned_csv_path} (n_samples={len(cleaned_df)})")
+        print(
+            f"Loaded cleaned data from {cleaned_csv_path} (n_samples={len(cleaned_df)})"
+        )
     except Exception as exc:
         raise RuntimeError(f"Failed to load cleaned CSV: {exc}") from exc
 
     # Extract features and labels from cleaned CSV
-    target_column = config.get('analysis_params', {}).get('target_column', 'label')
+    target_column = config.get("analysis_params", {}).get("target_column", "label")
     if target_column not in cleaned_df.columns:
         raise ValueError(f"Target column '{target_column}' not found in cleaned CSV")
 
@@ -96,22 +100,32 @@ def run_from_config(config: Dict[str, Any], verbose: bool = False) -> None:
     labels_for_modeling = cleaned_df[target_column].astype(str)
 
     # 4) Training
-    print('Training stacking classifier...')
-    model, training_metrics = train_stacking(features_for_modeling, labels_for_modeling, config.get('analysis_params', {}))
+    print("Training stacking classifier...")
+    model, training_metrics = train_stacking(
+        features_for_modeling, labels_for_modeling, config.get("analysis_params", {})
+    )
     # Do not print the training report to terminal; it will be saved in the JSON report
 
     # 5) Save artifacts and reports
-    print('Saving artifacts and reports...')
+    print("Saving artifacts and reports...")
     save_artifacts(preproc, model, str(out_root))
-    save_classification_report(labels_for_modeling, model.predict(features_for_modeling), str(out_root), training_metrics=training_metrics)
+    save_classification_report(
+        labels_for_modeling,
+        model.predict(features_for_modeling),
+        str(out_root),
+        training_metrics=training_metrics,
+    )
 
     # 6) Extract and save feature importances
-    print('Extracting feature importances...')
-    extract_and_save_feature_importances(model, list(features_for_modeling.columns), str(out_root), config)
+    print("Extracting feature importances...")
+    extract_and_save_feature_importances(
+        model, list(features_for_modeling.columns), str(out_root), config
+    )
 
     # 7) Additional visualization plots
-    print('Creating violin plots...')
+    print("Creating violin plots...")
     create_violin_plots(str(out_root), config)
+
 
 # Note: config file path is provided explicitly via CLI or falls back to the
 # workspace absolute path supplied by the user. We intentionally do not search
@@ -125,13 +139,10 @@ if __name__ == "__main__":
         "-c",
         dest="config_path",
         default=None,
-        help="Path to config.json (optional, will search automatically if not provided)"
+        help="Path to config.json (optional, will search automatically if not provided)",
     )
     parser.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        help="Enable verbose output"
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
     )
     args = parser.parse_args()
 
@@ -139,11 +150,13 @@ if __name__ == "__main__":
     if args.config_path is None:
         config_file_path = None
         for current_path in (Path.cwd(), *Path.cwd().parents):
-            if (current_path / 'config.json').exists():
-                config_file_path = current_path / 'config.json'
+            if (current_path / "config.json").exists():
+                config_file_path = current_path / "config.json"
                 break
         if config_file_path is None:
-            print("Error: config.json not found in current directory or parent directories")
+            print(
+                "Error: config.json not found in current directory or parent directories"
+            )
             sys.exit(2)
     else:
         config_file_path = Path(args.config_path).resolve()
@@ -152,20 +165,20 @@ if __name__ == "__main__":
             sys.exit(2)
 
     try:
-        with open(config_file_path, 'r') as file_handle:
+        with open(config_file_path, "r") as file_handle:
             config = json.load(file_handle)
     except Exception as exc:
-        print(f'Error: failed to load config: {exc}')
+        print(f"Error: failed to load config: {exc}")
         traceback.print_exc()
         sys.exit(2)
 
     try:
         # measure total pipeline execution time
         from scripts.timer import Timer
-        with Timer('total_pipeline'):
+
+        with Timer("total_pipeline"):
             run_from_config(config, verbose=args.verbose)
     except Exception as exc:
-        print(f'Pipeline failed: {exc}')
+        print(f"Pipeline failed: {exc}")
         traceback.print_exc()
         sys.exit(1)
-

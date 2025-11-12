@@ -16,7 +16,9 @@ import joblib
 from scripts.directories import resolve_output_dirs
 
 
-def clean_and_prepare(features_df: pd.DataFrame, config: Dict[str, Any]) -> Tuple[Tuple[pd.DataFrame, pd.Series], Pipeline]:
+def clean_and_prepare(
+    features_df: pd.DataFrame, config: Dict[str, Any]
+) -> Tuple[Tuple[pd.DataFrame, pd.Series], Pipeline]:
     """
     Clean and prepare the features DataFrame for modeling.
     Includes saving cleaned CSV and preprocessing bundle.
@@ -32,12 +34,12 @@ def clean_and_prepare(features_df: pd.DataFrame, config: Dict[str, Any]) -> Tupl
     # support either full config or just analysis_params dict
     if config is None:
         analysis_config = {}
-    elif 'paths' in config or 'feature_params' in config:
-        analysis_config = config.get('analysis_params', {})
+    elif "paths" in config or "feature_params" in config:
+        analysis_config = config.get("analysis_params", {})
     else:
         analysis_config = config
 
-    target_column = analysis_config.get('target_column', 'label')
+    target_column = analysis_config.get("target_column", "label")
     if target_column not in features_df.columns:
         raise ValueError(f"Target column '{target_column}' not found in dataframe")
 
@@ -51,23 +53,31 @@ def clean_and_prepare(features_df: pd.DataFrame, config: Dict[str, Any]) -> Tupl
     nan_counts = features.isna().sum()
     nan_fraction = nan_counts / len(features)
     print("Top columns by NaN fraction (showing >0):")
-    print(nan_fraction[nan_fraction > 0].sort_values(ascending=False).head(30).to_string())
+    print(
+        nan_fraction[nan_fraction > 0].sort_values(ascending=False).head(30).to_string()
+    )
 
-    column_threshold = float(analysis_config.get('max_nan_fraction', 0.5))
+    column_threshold = float(analysis_config.get("max_nan_fraction", 0.5))
     columns_to_keep = features.columns[features.isna().mean() < column_threshold]
-    dropped_columns = features.columns[features.isna().mean() >= column_threshold].tolist()
+    dropped_columns = features.columns[
+        features.isna().mean() >= column_threshold
+    ].tolist()
     if dropped_columns:
-        print(f"Dropping {len(dropped_columns)} columns with NaN fraction > {column_threshold}: {dropped_columns}")
+        print(
+            f"Dropping {len(dropped_columns)} columns with NaN fraction > {column_threshold}: {dropped_columns}"
+        )
         features = features[columns_to_keep]
     else:
         print("No columns to drop based on NaN fraction threshold.")
 
-    imputer = SimpleImputer(strategy=analysis_config.get('impute_strategy', 'median'))
+    imputer = SimpleImputer(strategy=analysis_config.get("impute_strategy", "median"))
     scaler = StandardScaler()
-    preprocessing_pipeline = Pipeline([('imputer', imputer), ('scaler', scaler)])
+    preprocessing_pipeline = Pipeline([("imputer", imputer), ("scaler", scaler)])
 
     features_transformed = preprocessing_pipeline.fit_transform(features)
-    features_clean = pd.DataFrame(features_transformed, columns=columns_to_keep, index=features.index)
+    features_clean = pd.DataFrame(
+        features_transformed, columns=columns_to_keep, index=features.index
+    )
 
     # Save cleaned CSV and bundle
     base_path = Path(__file__).resolve().parent

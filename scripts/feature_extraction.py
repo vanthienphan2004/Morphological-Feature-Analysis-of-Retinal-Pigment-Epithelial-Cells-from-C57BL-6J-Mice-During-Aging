@@ -29,17 +29,19 @@ def _compute_intensity_statistics(image: np.ndarray) -> List[float]:
     """
     mean_value = np.mean(image)
     std_value = np.std(image)
-    skewness_value = skew(image.flatten(), nan_policy='omit')
-    kurtosis_value = kurtosis(image.flatten(), nan_policy='omit')
+    skewness_value = skew(image.flatten(), nan_policy="omit")
+    kurtosis_value = kurtosis(image.flatten(), nan_policy="omit")
     return [
         mean_value,
         std_value,
         skewness_value if not np.isnan(skewness_value) else 0.0,
-        kurtosis_value if not np.isnan(kurtosis_value) else 0.0
+        kurtosis_value if not np.isnan(kurtosis_value) else 0.0,
     ]
 
 
-def _compute_lbp_features(image: np.ndarray, points: int = 8, radius: float = 1.0) -> List[float]:
+def _compute_lbp_features(
+    image: np.ndarray, points: int = 8, radius: float = 1.0
+) -> List[float]:
     """
     Compute Local Binary Pattern (LBP) histogram features.
 
@@ -51,7 +53,7 @@ def _compute_lbp_features(image: np.ndarray, points: int = 8, radius: float = 1.
     Returns:
         Normalized histogram of LBP values.
     """
-    lbp_image = local_binary_pattern(image, points, radius, method='uniform')
+    lbp_image = local_binary_pattern(image, points, radius, method="uniform")
     num_bins = int(lbp_image.max() + 1)
     histogram, _ = np.histogram(lbp_image.ravel(), bins=num_bins, range=(0, num_bins))
     return (histogram / (histogram.sum() + 1e-6)).tolist()
@@ -166,7 +168,9 @@ def _aggregate_nanaware(prefix: str, values) -> Dict[str, Any]:
     }
 
 
-def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose: bool = True) -> Dict[str, Any]:
+def extract_rpe_features(
+    image_path: str, config_params: Dict[str, Any], verbose: bool = True
+) -> Dict[str, Any]:
     """
     Extract morphological and texture features from a single RPE image.
 
@@ -179,7 +183,7 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
         Dictionary of extracted features.
     """
     try:
-        with Image.open(image_path).convert('RGB') as img:
+        with Image.open(image_path).convert("RGB") as img:
             image_array = np.array(img, dtype=np.uint8)
     except IOError as exc:
         if verbose:
@@ -218,13 +222,17 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
 
     features: Dict[str, Any] = {}
 
-    mean_intensity, std_intensity, skewness_intensity, kurtosis_intensity = _compute_intensity_statistics(grayscale_image)
-    features.update({
-        "intensity_mean": mean_intensity,
-        "intensity_std": std_intensity,
-        "intensity_skew": skewness_intensity,
-        "intensity_kurtosis": kurtosis_intensity,
-    })
+    mean_intensity, std_intensity, skewness_intensity, kurtosis_intensity = (
+        _compute_intensity_statistics(grayscale_image)
+    )
+    features.update(
+        {
+            "intensity_mean": mean_intensity,
+            "intensity_std": std_intensity,
+            "intensity_skew": skewness_intensity,
+            "intensity_kurtosis": kurtosis_intensity,
+        }
+    )
 
     labeled_image = measure.label(green_binary)
     cell_properties = measure.regionprops(labeled_image)
@@ -234,11 +242,39 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
     features["cell_density"] = n_cells / img_area if img_area > 0 else 0.0
 
     areas = [p.area for p in cell_properties] if cell_properties else [0]
-    perimeters = [p.perimeter for p in cell_properties if p.perimeter is not None] if cell_properties else [0]
-    major_axes = [p.major_axis_length for p in cell_properties if p.major_axis_length is not None] if cell_properties else [0]
-    minor_axes = [p.minor_axis_length for p in cell_properties if p.minor_axis_length is not None] if cell_properties else [0]
-    eccentricities = [p.eccentricity for p in cell_properties if p.eccentricity is not None] if cell_properties else [0]
-    solidities = [p.solidity for p in cell_properties if p.solidity is not None] if cell_properties else [0]
+    perimeters = (
+        [p.perimeter for p in cell_properties if p.perimeter is not None]
+        if cell_properties
+        else [0]
+    )
+    major_axes = (
+        [
+            p.major_axis_length
+            for p in cell_properties
+            if p.major_axis_length is not None
+        ]
+        if cell_properties
+        else [0]
+    )
+    minor_axes = (
+        [
+            p.minor_axis_length
+            for p in cell_properties
+            if p.minor_axis_length is not None
+        ]
+        if cell_properties
+        else [0]
+    )
+    eccentricities = (
+        [p.eccentricity for p in cell_properties if p.eccentricity is not None]
+        if cell_properties
+        else [0]
+    )
+    solidities = (
+        [p.solidity for p in cell_properties if p.solidity is not None]
+        if cell_properties
+        else [0]
+    )
 
     # Optional nuclear feature extraction (red channel) mapped to green-segmented cells
     # Controlled by config_params['extract_nuclear_features'] (defaults to False)
@@ -306,10 +342,22 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
             n = n_props_sorted[0]
 
             n_area = float(n.area)
-            n_perim = float(n.perimeter) if getattr(n, 'perimeter', None) is not None else 0.0
-            n_sol = float(n.solidity) if getattr(n, 'solidity', None) is not None else 0.0
-            n_maj = float(n.major_axis_length) if getattr(n, 'major_axis_length', None) is not None else 0.0
-            n_min = float(n.minor_axis_length) if getattr(n, 'minor_axis_length', None) is not None else 0.0
+            n_perim = (
+                float(n.perimeter) if getattr(n, "perimeter", None) is not None else 0.0
+            )
+            n_sol = (
+                float(n.solidity) if getattr(n, "solidity", None) is not None else 0.0
+            )
+            n_maj = (
+                float(n.major_axis_length)
+                if getattr(n, "major_axis_length", None) is not None
+                else 0.0
+            )
+            n_min = (
+                float(n.minor_axis_length)
+                if getattr(n, "minor_axis_length", None) is not None
+                else 0.0
+            )
 
             # Circularity: 4*pi*area / perimeter^2 (guard against zero perimeter)
             if n_perim and n_perim > 0:
@@ -324,7 +372,7 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
                 nc_ratio = n_area / cytoplasm_area
             else:
                 # If cytoplasm area is zero or negative, fall back to NaN to indicate invalid
-                nc_ratio = float('nan')
+                nc_ratio = float("nan")
 
             nucleus_areas.append(n_area)
             nucleus_perimeters.append(n_perim)
@@ -339,10 +387,18 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
         features.update(_aggregate_statistics("nucleus_perimeter", nucleus_perimeters))
         features.update(_aggregate_statistics("nucleus_major_axis", nucleus_major_axes))
         features.update(_aggregate_statistics("nucleus_minor_axis", nucleus_minor_axes))
-        features.update(_aggregate_statistics("nucleus_circularity", nucleus_circularity))
+        features.update(
+            _aggregate_statistics("nucleus_circularity", nucleus_circularity)
+        )
         features.update(_aggregate_statistics("nucleus_solidity", nucleus_solidities))
         # For N/C ratios, replace NaN with a large sentinel for aggregation guard, then restore NaN handling
-        nc_arr = np.array([float(x) if not (isinstance(x, float) and np.isnan(x)) else np.nan for x in nc_ratios], dtype=float)
+        nc_arr = np.array(
+            [
+                float(x) if not (isinstance(x, float) and np.isnan(x)) else np.nan
+                for x in nc_ratios
+            ],
+            dtype=float,
+        )
         # When computing statistics, np.nanmean / np.nanstd can be used; use the
         # module-level nan-aware aggregator for N/C ratios and the standard
         # aggregator for numeric lists.
@@ -352,7 +408,11 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
     features.update(_aggregate_statistics("perimeter", perimeters))
     features.update(_aggregate_statistics("major_axis", major_axes))
     features.update(_aggregate_statistics("minor_axis", minor_axes))
-    ar = [a / b if b > 0 else 0 for a, b in zip(major_axes, minor_axes)] if cell_properties else [0]
+    ar = (
+        [a / b if b > 0 else 0 for a, b in zip(major_axes, minor_axes)]
+        if cell_properties
+        else [0]
+    )
     features.update(_aggregate_statistics("aspect_ratio", ar))
     features.update(_aggregate_statistics("eccentricity", eccentricities))
     features.update(_aggregate_statistics("solidity", solidities))
@@ -369,6 +429,7 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
     if len(centroids) > 1:
         pts = np.array(centroids)
         from scipy.spatial import distance
+
         dmat = distance.cdist(pts, pts)
         np.fill_diagonal(dmat, np.inf)
         nn = np.min(dmat, axis=1)
@@ -378,7 +439,9 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
         features["nn_mean"] = 0.0
         features["nn_std"] = 0.0
 
-    lbp_hist = _compute_lbp_features(grayscale_image, points=lbp_points, radius=lbp_radius)
+    lbp_hist = _compute_lbp_features(
+        grayscale_image, points=lbp_points, radius=lbp_radius
+    )
     for i, v in enumerate(lbp_hist):
         features[f"lbp_{i}"] = float(v)
 
@@ -386,9 +449,23 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
         levels = int(config_params.get("glcm_levels", 64))
         gray_reduced = (grayscale_image / (256 // max(1, levels))).astype(np.uint8)
         distances = [1]
-        angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
-        glcm = graycomatrix(gray_reduced, distances=distances, angles=angles, levels=levels, symmetric=True, normed=True)
-        props_names = ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation', 'ASM']
+        angles = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4]
+        glcm = graycomatrix(
+            gray_reduced,
+            distances=distances,
+            angles=angles,
+            levels=levels,
+            symmetric=True,
+            normed=True,
+        )
+        props_names = [
+            "contrast",
+            "dissimilarity",
+            "homogeneity",
+            "energy",
+            "correlation",
+            "ASM",
+        ]
         for pn in props_names:
             try:
                 vals = graycoprops(glcm, pn)
@@ -398,17 +475,28 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
                 features[f"glcm_{pn}_mean"] = 0.0
                 features[f"glcm_{pn}_std"] = 0.0
     except Exception:
-        for pn in ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation', 'ASM']:
+        for pn in [
+            "contrast",
+            "dissimilarity",
+            "homogeneity",
+            "energy",
+            "correlation",
+            "ASM",
+        ]:
             features[f"glcm_{pn}_mean"] = 0.0
             features[f"glcm_{pn}_std"] = 0.0
 
     try:
         gab_freqs = config_params.get("gabor_frequencies", [0.1, 0.2])
-        gab_angles = config_params.get("gabor_angles", [0, np.pi/4, np.pi/2])
+        gab_angles = config_params.get("gabor_angles", [0, np.pi / 4, np.pi / 2])
         for freq in gab_freqs:
             for ang in gab_angles:
                 try:
-                    real, imag = gabor(grayscale_image.astype(float), frequency=float(freq), theta=float(ang))
+                    real, imag = gabor(
+                        grayscale_image.astype(float),
+                        frequency=float(freq),
+                        theta=float(ang),
+                    )
                     mag = np.hypot(real, imag)
                     mag = np.where(np.isfinite(mag), mag, np.nan)
                     mean_val = np.nanmean(mag)
@@ -417,21 +505,27 @@ def extract_rpe_features(image_path: str, config_params: Dict[str, Any], verbose
                         mean_val = 0.0
                     if not np.isfinite(std_val):
                         std_val = 0.0
-                    features[f"gabor_f{freq}_a{int(np.degrees(ang))}_mean"] = float(mean_val)
-                    features[f"gabor_f{freq}_a{int(np.degrees(ang))}_std"] = float(std_val)
+                    features[f"gabor_f{freq}_a{int(np.degrees(ang))}_mean"] = float(
+                        mean_val
+                    )
+                    features[f"gabor_f{freq}_a{int(np.degrees(ang))}_std"] = float(
+                        std_val
+                    )
                 except Exception:
                     features[f"gabor_f{freq}_a{int(np.degrees(ang))}_mean"] = 0.0
                     features[f"gabor_f{freq}_a{int(np.degrees(ang))}_std"] = 0.0
     except Exception:
         for freq in [0.1, 0.2]:
-            for ang in [0, np.pi/4, np.pi/2]:
+            for ang in [0, np.pi / 4, np.pi / 2]:
                 features[f"gabor_f{freq}_a{int(np.degrees(ang))}_mean"] = 0.0
                 features[f"gabor_f{freq}_a{int(np.degrees(ang))}_std"] = 0.0
 
     return features
 
 
-def extract_features_from_directory(directory_path: str, config: dict, verbose: bool = False) -> pd.DataFrame:
+def extract_features_from_directory(
+    directory_path: str, config: dict, verbose: bool = False
+) -> pd.DataFrame:
     """
     Extract features from all images in a directory.
 
@@ -446,24 +540,27 @@ def extract_features_from_directory(directory_path: str, config: dict, verbose: 
     features_list = []
     labels = []
     from pathlib import Path
-    config_params = config.get('feature_params', {})
+
+    config_params = config.get("feature_params", {})
     # collect all image paths first so we can show total progress
     image_paths = []
     dir_path = Path(directory_path)
     for foldername in dir_path.iterdir():
         if foldername.is_dir():
             for filename in foldername.iterdir():
-                if filename.suffix.lower() in ('.tif', '.tiff'):
+                if filename.suffix.lower() in (".tif", ".tiff"):
                     image_paths.append((foldername.name, str(filename)))
 
     disable_bar = not bool(verbose)
-    for foldername, image_path in tqdm(image_paths, desc="Extracting features", unit="img", disable=disable_bar):
+    for foldername, image_path in tqdm(
+        image_paths, desc="Extracting features", unit="img", disable=disable_bar
+    ):
         features = extract_rpe_features(image_path, config_params, verbose=verbose)
         features_list.append(features)
         labels.append(foldername)
 
-    flat_features = [ _flatten_features(f) for f in features_list ]
+    flat_features = [_flatten_features(f) for f in features_list]
     df = pd.DataFrame(flat_features)
-    df['label'] = labels
+    df["label"] = labels
     df.fillna(0, inplace=True)
     return df

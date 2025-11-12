@@ -15,7 +15,8 @@ import numpy as np
 import pandas as pd
 import joblib
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # Scikit-learn imports
@@ -23,7 +24,11 @@ from sklearn.ensemble import StackingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+)
 
 # Boosting library imports
 from xgboost import XGBClassifier
@@ -47,10 +52,10 @@ def load_config_constants() -> Dict[str, Any]:
         - n_estimators: Number of estimators for ensemble models
         - max_depth: Maximum depth for tree-based models (None for unlimited)
     """
-    config_path = Path(__file__).resolve().parent.parent / 'config.json'
+    config_path = Path(__file__).resolve().parent.parent / "config.json"
 
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
         print(f"Loaded configuration from {config_path}")
     except (FileNotFoundError, json.JSONDecodeError) as e:
@@ -58,15 +63,15 @@ def load_config_constants() -> Dict[str, Any]:
         config = {}
 
     # Extract analysis parameters with defaults
-    analysis_params = config.get('analysis_params', {})
-    rf_params = analysis_params.get('rf_params', {})
+    analysis_params = config.get("analysis_params", {})
+    rf_params = analysis_params.get("rf_params", {})
 
     constants = {
-        'random_state': analysis_params.get('random_state', 42),
-        'cv_folds': analysis_params.get('cv_folds', 5),
-        'test_size': analysis_params.get('test_size', 0.2),
-        'n_estimators': rf_params.get('n_estimators', 100),
-        'max_depth': rf_params.get('max_depth'),
+        "random_state": analysis_params.get("random_state", 42),
+        "cv_folds": analysis_params.get("cv_folds", 5),
+        "test_size": analysis_params.get("test_size", 0.2),
+        "n_estimators": rf_params.get("n_estimators", 100),
+        "max_depth": rf_params.get("max_depth"),
     }
 
     return constants
@@ -76,17 +81,15 @@ def load_config_constants() -> Dict[str, Any]:
 CONFIG_CONSTANTS = load_config_constants()
 
 # Extract individual constants for easy access (loaded from config.json)
-DEFAULT_RANDOM_STATE = CONFIG_CONSTANTS['random_state']
-DEFAULT_CV_FOLDS = CONFIG_CONSTANTS['cv_folds']
-DEFAULT_TEST_SIZE = CONFIG_CONSTANTS['test_size']
-DEFAULT_N_ESTIMATORS = CONFIG_CONSTANTS['n_estimators']
-DEFAULT_MAX_DEPTH = CONFIG_CONSTANTS['max_depth']
+DEFAULT_RANDOM_STATE = CONFIG_CONSTANTS["random_state"]
+DEFAULT_CV_FOLDS = CONFIG_CONSTANTS["cv_folds"]
+DEFAULT_TEST_SIZE = CONFIG_CONSTANTS["test_size"]
+DEFAULT_N_ESTIMATORS = CONFIG_CONSTANTS["n_estimators"]
+DEFAULT_MAX_DEPTH = CONFIG_CONSTANTS["max_depth"]
 
 
 def train_stacking(
-    features: pd.DataFrame,
-    labels: pd.Series,
-    config: Dict[str, Any]
+    features: pd.DataFrame, labels: pd.Series, config: Dict[str, Any]
 ) -> Tuple[object, Dict[str, float]]:
     """
     Train a Boosting_Stacking classifier with XGBoost, LightGBM, and CatBoost base estimators.
@@ -109,9 +112,9 @@ def train_stacking(
         ValueError: If configuration parameters are invalid.
     """
     # Extract configuration parameters with defaults from config file
-    random_state = int(config.get('random_state', DEFAULT_RANDOM_STATE))
-    cv_folds = int(config.get('cv_folds', DEFAULT_CV_FOLDS))
-    test_size = float(config.get('test_size', DEFAULT_TEST_SIZE))
+    random_state = int(config.get("random_state", DEFAULT_RANDOM_STATE))
+    cv_folds = int(config.get("cv_folds", DEFAULT_CV_FOLDS))
+    test_size = float(config.get("test_size", DEFAULT_TEST_SIZE))
 
     # Validate inputs
     if features.empty or labels.empty:
@@ -121,21 +124,30 @@ def train_stacking(
 
     # Initialize base estimators for the stacking ensemble
     base_estimators = [
-        ('xgb', XGBClassifier(
-            n_estimators=DEFAULT_N_ESTIMATORS,
-            random_state=random_state,
-            verbosity=0
-        )),
-        ('lgbm', LGBMClassifier(
-            n_estimators=DEFAULT_N_ESTIMATORS,
-            random_state=random_state,
-            verbosity=-1
-        )),
-        ('catboost', CatBoostClassifier(
-            n_estimators=DEFAULT_N_ESTIMATORS,
-            random_state=random_state,
-            verbose=False
-        ))
+        (
+            "xgb",
+            XGBClassifier(
+                n_estimators=DEFAULT_N_ESTIMATORS,
+                random_state=random_state,
+                verbosity=0,
+            ),
+        ),
+        (
+            "lgbm",
+            LGBMClassifier(
+                n_estimators=DEFAULT_N_ESTIMATORS,
+                random_state=random_state,
+                verbosity=-1,
+            ),
+        ),
+        (
+            "catboost",
+            CatBoostClassifier(
+                n_estimators=DEFAULT_N_ESTIMATORS,
+                random_state=random_state,
+                verbose=False,
+            ),
+        ),
     ]
 
     # Initialize final estimator
@@ -143,17 +155,16 @@ def train_stacking(
 
     # Create and configure the stacking model
     stacking_model = StackingClassifier(
-        estimators=base_estimators,
-        final_estimator=final_estimator,
-        cv=cv_folds
+        estimators=base_estimators, final_estimator=final_estimator, cv=cv_folds
     )
 
     # Split data into training and testing sets
     features_train, features_test, labels_train, labels_test = train_test_split(
-        features, labels,
+        features,
+        labels,
         test_size=test_size,
         random_state=random_state,
-        stratify=labels
+        stratify=labels,
     )
 
     # Train the stacking model
@@ -167,7 +178,7 @@ def train_stacking(
         features_train,
         labels_train,
         cv=cv_folds,
-        n_jobs=-1  # Use all available cores
+        n_jobs=-1,  # Use all available cores
     )
 
     # Evaluate on test set
@@ -175,11 +186,11 @@ def train_stacking(
 
     # Compile training metrics
     training_metrics = {
-        'cv_mean_score': float(np.mean(cross_val_scores)),
-        'cv_std_score': float(np.std(cross_val_scores)),
-        'test_score': float(test_score),
-        'cv_folds': cv_folds,
-        'test_size': test_size
+        "cv_mean_score": float(np.mean(cross_val_scores)),
+        "cv_std_score": float(np.std(cross_val_scores)),
+        "test_score": float(test_score),
+        "cv_folds": cv_folds,
+        "test_size": test_size,
     }
 
     print(".3f")
@@ -187,9 +198,7 @@ def train_stacking(
 
 
 def save_artifacts(
-    pipeline: Pipeline,
-    trained_model: object,
-    output_directory: str
+    pipeline: Pipeline, trained_model: object, output_directory: str
 ) -> None:
     """
     Save preprocessing pipeline and trained model to disk.
@@ -212,9 +221,9 @@ def save_artifacts(
             custom_output_dir = Path(output_directory)
             if custom_output_dir.exists() and custom_output_dir.is_dir():
                 output_root = custom_output_dir
-                reports_dir = output_root / 'reports'
-                models_dir = output_root / 'models'
-                plots_dir = output_root / 'plots'
+                reports_dir = output_root / "reports"
+                models_dir = output_root / "models"
+                plots_dir = output_root / "plots"
 
                 # Create directories if they don't exist
                 reports_dir.mkdir(parents=True, exist_ok=True)
@@ -225,10 +234,10 @@ def save_artifacts(
 
     # Save model artifacts
     try:
-        joblib.dump(pipeline, models_dir / 'preprocessor.joblib')
+        joblib.dump(pipeline, models_dir / "preprocessor.joblib")
         print(f"Saved preprocessor to {models_dir / 'preprocessor.joblib'}")
 
-        joblib.dump(trained_model, models_dir / 'model.joblib')
+        joblib.dump(trained_model, models_dir / "model.joblib")
         print(f"Saved trained model to {models_dir / 'model.joblib'}")
 
     except Exception as e:
@@ -239,7 +248,7 @@ def save_classification_report(
     true_labels: pd.Series,
     predicted_labels: pd.Series,
     output_directory: str,
-    training_metrics: Optional[Dict[str, float]] = None
+    training_metrics: Optional[Dict[str, float]] = None,
 ) -> None:
     """
     Generate and save classification report with metrics and confusion matrix visualization.
@@ -263,8 +272,8 @@ def save_classification_report(
             custom_output_dir = Path(output_directory)
             if custom_output_dir.exists() and custom_output_dir.is_dir():
                 output_root = custom_output_dir
-                reports_dir = output_root / 'reports'
-                plots_dir = output_root / 'plots'
+                reports_dir = output_root / "reports"
+                plots_dir = output_root / "plots"
 
                 # Create directories if they don't exist
                 reports_dir.mkdir(parents=True, exist_ok=True)
@@ -275,18 +284,16 @@ def save_classification_report(
     # Generate classification report
     try:
         classification_report_dict = classification_report(
-            true_labels,
-            predicted_labels,
-            output_dict=True
+            true_labels, predicted_labels, output_dict=True
         )
 
         # Add training metrics if provided
         if training_metrics:
-            classification_report_dict['_training_metrics'] = training_metrics
+            classification_report_dict["_training_metrics"] = training_metrics
 
         # Save classification report as JSON
-        report_path = reports_dir / 'classification_report.json'
-        with open(report_path, 'w', encoding='utf-8') as f:
+        report_path = reports_dir / "classification_report.json"
+        with open(report_path, "w", encoding="utf-8") as f:
             json.dump(classification_report_dict, f, indent=2, ensure_ascii=False)
         print(f"Saved classification report to {report_path}")
 
@@ -298,18 +305,20 @@ def save_classification_report(
         confusion_matrix_array = confusion_matrix(true_labels, predicted_labels)
         display = ConfusionMatrixDisplay(
             confusion_matrix=confusion_matrix_array,
-            display_labels=sorted(true_labels.unique())
+            display_labels=sorted(true_labels.unique()),
         )
 
         plt.figure(figsize=(10, 8))
-        display.plot(values_format='d', cmap='Blues', ax=plt.gca())
-        plt.title('Confusion Matrix - RPE Cell Classification', fontsize=14, fontweight='bold')
-        plt.xticks(rotation=45, ha='right')
+        display.plot(values_format="d", cmap="Blues", ax=plt.gca())
+        plt.title(
+            "Confusion Matrix - RPE Cell Classification", fontsize=14, fontweight="bold"
+        )
+        plt.xticks(rotation=45, ha="right")
         plt.tight_layout()
 
         # Save confusion matrix plot
-        cm_path = plots_dir / 'confusion_matrix.png'
-        plt.savefig(cm_path, dpi=300, bbox_inches='tight')
+        cm_path = plots_dir / "confusion_matrix.png"
+        plt.savefig(cm_path, dpi=300, bbox_inches="tight")
         plt.close()
         print(f"Saved confusion matrix plot to {cm_path}")
 

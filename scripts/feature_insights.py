@@ -11,7 +11,8 @@ from typing import Optional, Tuple, Dict, List, Any
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import linregress
@@ -22,7 +23,7 @@ def extract_and_save_feature_importances(
     trained_model: object,
     feature_names: list,
     output_directory: str,
-    config: Optional[Dict[str, Any]] = None
+    config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     Extract feature importances from boosting algorithm base learners in stacking model
@@ -43,15 +44,19 @@ def extract_and_save_feature_importances(
         user_output_dir = Path(output_directory)
         if user_output_dir.exists() and user_output_dir.is_dir():
             output_root = user_output_dir
-            reports_dir = output_root / 'reports'
-            plots_dir = output_root / 'plots'
+            reports_dir = output_root / "reports"
+            plots_dir = output_root / "plots"
             reports_dir.mkdir(parents=True, exist_ok=True)
             plots_dir.mkdir(parents=True, exist_ok=True)
     except Exception:
         pass
 
     # Get top features count from config, default to 10
-    top_features_count = config.get('feature_insights_params', {}).get('top_features_count', 10) if config else 10
+    top_features_count = (
+        config.get("feature_insights_params", {}).get("top_features_count", 10)
+        if config
+        else 10
+    )
 
     importances = None
     estimator_name = None
@@ -59,30 +64,34 @@ def extract_and_save_feature_importances(
 
     # Try to find all boosting algorithm base learners in stacking model
     try:
-        if hasattr(trained_model, 'named_estimators_'):
+        if hasattr(trained_model, "named_estimators_"):
             named_estimators = trained_model.named_estimators_
             # Collect feature importances from all boosting algorithms
             for name, estimator in named_estimators.items():
-                if hasattr(estimator, 'feature_importances_'):
+                if hasattr(estimator, "feature_importances_"):
                     all_importances[name] = estimator.feature_importances_
                     print(f"Found feature importances from {name} estimator")
 
         # If not found in named_estimators, check estimators_ attribute
-        if not all_importances and hasattr(trained_model, 'estimators_'):
+        if not all_importances and hasattr(trained_model, "estimators_"):
             for i, estimator in enumerate(trained_model.estimators_):
-                if hasattr(estimator, 'feature_importances_'):
+                if hasattr(estimator, "feature_importances_"):
                     all_importances[f"estimator_{i}"] = estimator.feature_importances_
                     print(f"Found feature importances from estimator_{i}")
 
         # Alternative: Try to get feature importances from the final estimator
-        if not all_importances and hasattr(trained_model, 'final_estimator_'):
+        if not all_importances and hasattr(trained_model, "final_estimator_"):
             final_estimator = trained_model.final_estimator_
-            if hasattr(final_estimator, 'coef_'):
+            if hasattr(final_estimator, "coef_"):
                 # For linear models, use absolute coefficient values as importance
                 all_importances["final_estimator"] = np.abs(final_estimator.coef_[0])
-                print("Using coefficient-based feature importances from final estimator")
-            elif hasattr(final_estimator, 'feature_importances_'):
-                all_importances["final_estimator"] = final_estimator.feature_importances_
+                print(
+                    "Using coefficient-based feature importances from final estimator"
+                )
+            elif hasattr(final_estimator, "feature_importances_"):
+                all_importances["final_estimator"] = (
+                    final_estimator.feature_importances_
+                )
                 print("Found feature importances from final estimator")
 
         # Decide which importance to use
@@ -93,67 +102,75 @@ def extract_and_save_feature_importances(
                 print(f"Using feature importances from {estimator_name}")
             else:
                 # Multiple sources available - use ensemble approach
-                print(f"Found {len(all_importances)} sources of feature importance: {list(all_importances.keys())}")
+                print(
+                    f"Found {len(all_importances)} sources of feature importance: {list(all_importances.keys())}"
+                )
 
                 # Average all available importances (ensemble approach)
                 importance_arrays = list(all_importances.values())
                 importances = np.mean(importance_arrays, axis=0)
                 estimator_name = "ensemble_average"
-                print("Using ensemble-averaged feature importances from all available estimators")
+                print(
+                    "Using ensemble-averaged feature importances from all available estimators"
+                )
 
                 # Optionally save individual importances for comparison
                 for name, imp in all_importances.items():
-                    individual_df = pd.DataFrame({
-                        'feature': feature_names,
-                        'importance': imp
-                    })
-                    individual_df = individual_df.sort_values('importance', ascending=False)
-                    individual_df.to_csv(reports_dir / f'feature_importances_{name}.csv', index=False)
-                    print(f"Saved individual feature importances to {reports_dir / f'feature_importances_{name}.csv'}")
+                    individual_df = pd.DataFrame(
+                        {"feature": feature_names, "importance": imp}
+                    )
+                    individual_df = individual_df.sort_values(
+                        "importance", ascending=False
+                    )
+                    individual_df.to_csv(
+                        reports_dir / f"feature_importances_{name}.csv", index=False
+                    )
+                    print(
+                        f"Saved individual feature importances to {reports_dir / f'feature_importances_{name}.csv'}"
+                    )
 
     except Exception as e:
         print(f"Warning: Could not extract feature importances: {e}")
 
     if importances is None:
-        print("No feature importances found in stacking model; skipping feature_importances.csv")
+        print(
+            "No feature importances found in stacking model; skipping feature_importances.csv"
+        )
         print("Consider using permutation importance for model interpretability.")
         return
 
     # Create feature importance DataFrame
-    feature_importance_df = pd.DataFrame({
-        'feature': feature_names,
-        'importance': importances
-    })
-    feature_importance_df = feature_importance_df.sort_values('importance', ascending=False)
+    feature_importance_df = pd.DataFrame(
+        {"feature": feature_names, "importance": importances}
+    )
+    feature_importance_df = feature_importance_df.sort_values(
+        "importance", ascending=False
+    )
 
     # Save to CSV
-    feature_importance_df.to_csv(reports_dir / 'feature_importances.csv', index=False)
+    feature_importance_df.to_csv(reports_dir / "feature_importances.csv", index=False)
     print(f"Saved feature importances to {reports_dir / 'feature_importances.csv'}")
 
     # Create visualization
     plt.figure(figsize=(12, 8))
     top_features = feature_importance_df.head(top_features_count)  # Show top N features
-    plt.barh(
-        range(len(top_features)),
-        top_features['importance'],
-        align='center'
+    plt.barh(range(len(top_features)), top_features["importance"], align="center")
+    plt.yticks(range(len(top_features)), top_features["feature"], fontsize=8)
+    plt.xlabel("Feature Importance")
+    plt.ylabel("Features")
+    plt.title(
+        f'Top {top_features_count} Feature Importances ({estimator_name or "Model"})'
     )
-    plt.yticks(
-        range(len(top_features)),
-        top_features['feature'],
-        fontsize=8
-    )
-    plt.xlabel('Feature Importance')
-    plt.ylabel('Features')
-    plt.title(f'Top {top_features_count} Feature Importances ({estimator_name or "Model"})')
     plt.gca().invert_yaxis()  # Highest importance at top
     plt.tight_layout()
-    plt.savefig(plots_dir / 'feature_importances.png', dpi=300, bbox_inches='tight')
+    plt.savefig(plots_dir / "feature_importances.png", dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Saved feature importance plot to {plots_dir / 'feature_importances.png'}")
 
 
-def create_violin_plots(output_directory: Optional[str] = None, config: Optional[Dict[str, Any]] = None) -> None:
+def create_violin_plots(
+    output_directory: Optional[str] = None, config: Optional[Dict[str, Any]] = None
+) -> None:
     """
     Create violin plots for top features in a dynamic grid layout based on top_features_count.
 
@@ -173,13 +190,13 @@ def create_violin_plots(output_directory: Optional[str] = None, config: Optional
             user_output_dir = Path(output_directory)
             if user_output_dir.exists() and user_output_dir.is_dir():
                 output_root = user_output_dir
-                reports_dir = output_root / 'reports'
-                plots_dir = output_root / 'plots'
+                reports_dir = output_root / "reports"
+                plots_dir = output_root / "plots"
         except Exception:
             pass
 
     # Load cleaned features data
-    cleaned_features_path = reports_dir / 'rpe_extracted_features_cleaned.csv'
+    cleaned_features_path = reports_dir / "rpe_extracted_features_cleaned.csv"
     if not cleaned_features_path.exists():
         print(f"Cleaned features file not found: {cleaned_features_path}")
         return
@@ -187,22 +204,35 @@ def create_violin_plots(output_directory: Optional[str] = None, config: Optional
     features_df = pd.read_csv(cleaned_features_path)
 
     # Assume there's a 'label' column for grouping
-    if 'label' not in features_df.columns:
+    if "label" not in features_df.columns:
         print("No 'label' column found in features data. Cannot create violin plots.")
         return
 
     # Get top features count from config, default to 10
-    top_features_count = config.get('feature_insights_params', {}).get('top_features_count', 10) if config else 10
+    top_features_count = (
+        config.get("feature_insights_params", {}).get("top_features_count", 10)
+        if config
+        else 10
+    )
 
     # Load top important features from feature importances
-    feature_importances_path = reports_dir / 'feature_importances.csv'
+    feature_importances_path = reports_dir / "feature_importances.csv"
     if feature_importances_path.exists():
         feature_importances_df = pd.read_csv(feature_importances_path)
-        features_to_plot = feature_importances_df.head(top_features_count)['feature'].tolist()
+        features_to_plot = feature_importances_df.head(top_features_count)[
+            "feature"
+        ].tolist()
     else:
         # Fallback to default features if importances file doesn't exist
-        features_to_plot = ['lbp_9', 'minor_axis_median', 'circularity_median', 'solidity_mean']
-        features_to_plot = features_to_plot[:top_features_count]  # Limit to top_features_count
+        features_to_plot = [
+            "lbp_9",
+            "minor_axis_median",
+            "circularity_median",
+            "solidity_mean",
+        ]
+        features_to_plot = features_to_plot[
+            :top_features_count
+        ]  # Limit to top_features_count
 
     # Ensure we don't exceed available features
     available_features = [f for f in features_to_plot if f in features_df.columns]
@@ -226,12 +256,12 @@ def create_violin_plots(output_directory: Optional[str] = None, config: Optional
     else:
         nrows, ncols = 4, 4  # Cap at 4x4 grid for readability
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows))
-    
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 4 * nrows))
+
     # Handle axes properly for different numbers of subplots
     if num_features == 1:
         axes = [axes]  # Single subplot returns a single Axes object
-    elif hasattr(axes, 'flatten'):
+    elif hasattr(axes, "flatten"):
         axes = axes.flatten()  # Multi-dimensional array
     else:
         axes = [axes]  # Fallback for any other case
@@ -242,17 +272,25 @@ def create_violin_plots(output_directory: Optional[str] = None, config: Optional
     for i, feature in enumerate(features_to_plot):
         if i >= len(axes):
             break  # Don't exceed available subplots
-            
+
         ax = axes[i]
 
         if feature in features_df.columns:
             # Create violin plot
-            sns.violinplot(data=features_df, x='label', y=feature, ax=ax, hue='label', palette='Set2', legend=False)
+            sns.violinplot(
+                data=features_df,
+                x="label",
+                y=feature,
+                ax=ax,
+                hue="label",
+                palette="Set2",
+                legend=False,
+            )
 
             # Add trendline
-            unique_labels = sorted(features_df['label'].unique())
+            unique_labels = sorted(features_df["label"].unique())
             label_map = {label: i for i, label in enumerate(unique_labels)}
-            x_vals = [label_map[label] for label in features_df['label']]
+            x_vals = [label_map[label] for label in features_df["label"]]
             y_vals = features_df[feature]
 
             if len(set(x_vals)) > 1:  # Need at least 2 unique x values for trendline
@@ -261,14 +299,24 @@ def create_violin_plots(output_directory: Optional[str] = None, config: Optional
                 y_trend = [slope * xi + intercept for xi in x_trend]
 
                 # Plot trendline
-                ax.plot(x_trend, y_trend, color='red', linestyle='--', linewidth=2,
-                       label=f'Trend (R²={r_value**2:.2f})')
+                ax.plot(
+                    x_trend,
+                    y_trend,
+                    color="red",
+                    linestyle="--",
+                    linewidth=2,
+                    label=f"Trend (R²={r_value**2:.2f})",
+                )
 
             # Customize plot
-            ax.set_title(f'Distribution of {feature.replace("_", " ").title()}', fontsize=12, fontweight='bold')
-            ax.set_xlabel('Age Group', fontsize=10)
+            ax.set_title(
+                f'Distribution of {feature.replace("_", " ").title()}',
+                fontsize=12,
+                fontweight="bold",
+            )
+            ax.set_xlabel("Age Group", fontsize=10)
             ax.set_ylabel(feature.replace("_", " ").title(), fontsize=10)
-            ax.tick_params(axis='x', rotation=45)
+            ax.tick_params(axis="x", rotation=45)
 
             # Add legend for trendline
             ax.legend()
@@ -276,9 +324,18 @@ def create_violin_plots(output_directory: Optional[str] = None, config: Optional
             # Add grid
             ax.grid(True, alpha=0.3)
         else:
-            ax.text(0.5, 0.5, f'Feature {feature} not found',
-                   transform=ax.transAxes, ha='center', va='center', fontsize=12)
-            ax.set_title(f'{feature.replace("_", " ").title()} (Not Available)', fontsize=12)
+            ax.text(
+                0.5,
+                0.5,
+                f"Feature {feature} not found",
+                transform=ax.transAxes,
+                ha="center",
+                va="center",
+                fontsize=12,
+            )
+            ax.set_title(
+                f'{feature.replace("_", " ").title()} (Not Available)', fontsize=12
+            )
 
     # Hide unused subplots if any
     for i in range(num_features, len(axes)):
@@ -288,8 +345,8 @@ def create_violin_plots(output_directory: Optional[str] = None, config: Optional
     plt.tight_layout()
 
     # Save the figure
-    violin_plot_path = plots_dir / 'top_features_violin_plots.png'
-    plt.savefig(violin_plot_path, dpi=300, bbox_inches='tight')
+    violin_plot_path = plots_dir / "top_features_violin_plots.png"
+    plt.savefig(violin_plot_path, dpi=300, bbox_inches="tight")
     plt.close()
 
     print(f"Saved violin plots to {violin_plot_path}")

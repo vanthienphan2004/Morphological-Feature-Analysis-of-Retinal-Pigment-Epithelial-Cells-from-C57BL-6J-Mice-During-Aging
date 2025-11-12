@@ -31,3 +31,6 @@ Thumbs.db
 
 # Analysis results (uncomment if you want to ignore these)
 # analysis_results/
+
+#Pre-commit hooks
+.pre-commit-config.yaml

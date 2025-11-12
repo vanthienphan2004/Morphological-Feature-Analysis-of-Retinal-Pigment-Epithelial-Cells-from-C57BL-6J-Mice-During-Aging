@@ -16,6 +16,7 @@ Or the simple helpers:
     ...
     end, duration = stop_timer(start)
 """
+
 from __future__ import annotations
 
 import time
@@ -45,13 +46,15 @@ class Timer:
             do_work()
     """
 
-    def __init__(self, name: Optional[str] = None, logger: Callable[[str], None] = print):
+    def __init__(
+        self, name: Optional[str] = None, logger: Callable[[str], None] = print
+    ):
         self.name = name
         self.logger = logger
         self.start: Optional[float] = None
         self.end: Optional[float] = None
 
-    def __enter__(self) -> 'Timer':
+    def __enter__(self) -> "Timer":
         self.start = time.time()
         return self
 
@@ -92,14 +95,14 @@ def timeit(func: Callable) -> Callable:
     return wrapper
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # simple CLI demo
-    print('Timer demo: sleeping 0.5s')
+    print("Timer demo: sleeping 0.5s")
     s = start_timer()
     time.sleep(0.5)
     e, d = stop_timer(s)
-    print(f'start={s:.6f} end={e:.6f} duration={d:.4f} s')
+    print(f"start={s:.6f} end={e:.6f} duration={d:.4f} s")
 
-    print('Context manager demo:')
-    with Timer('demo'):
+    print("Context manager demo:")
+    with Timer("demo"):
         time.sleep(0.25)

@@ -13,6 +13,7 @@ Flags:
   --force-legacy  : allow using a legacy estimator (best-effort, unsafe if columns/order mismatch)
   --analyze       : also generate classification report and confusion matrix (requires true labels in CSV)
 """
+
 import argparse
 import json
 from pathlib import Path
@@ -21,9 +22,14 @@ import pandas as pd
 import numpy as np
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+)
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
@@ -32,11 +38,27 @@ from scripts.directories import resolve_output_dirs
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', '-m', help='Path to model bundle file or folder containing models (optional)')
-    parser.add_argument('--features', '-f', help='Path to features CSV to predict', required=True)
-    parser.add_argument('--out', '-o', help='Path to output predictions CSV', default=None)
-    parser.add_argument('--force-legacy', action='store_true', help='Allow using a legacy estimator (columns/order must match training)')
-    parser.add_argument('--analyze', action='store_true', help='Also write classification report and confusion matrix (requires true labels in CSV)')
+    parser.add_argument(
+        "--model",
+        "-m",
+        help="Path to model bundle file or folder containing models (optional)",
+    )
+    parser.add_argument(
+        "--features", "-f", help="Path to features CSV to predict", required=True
+    )
+    parser.add_argument(
+        "--out", "-o", help="Path to output predictions CSV", default=None
+    )
+    parser.add_argument(
+        "--force-legacy",
+        action="store_true",
+        help="Allow using a legacy estimator (columns/order must match training)",
+    )
+    parser.add_argument(
+        "--analyze",
+        action="store_true",
+        help="Also write classification report and confusion matrix (requires true labels in CSV)",
+    )
     args = parser.parse_args()
 
     base = Path(__file__).resolve().parents[1]
@@ -47,20 +69,22 @@ def main() -> None:
         model_path = Path(args.model)
     else:
         # prefer a bundle in models_dir
-        bundle_path = models_dir / 'stacking_model_bundle.joblib'
-        pipeline_path = models_dir / 'pipeline.joblib'
+        bundle_path = models_dir / "stacking_model_bundle.joblib"
+        pipeline_path = models_dir / "pipeline.joblib"
         if bundle_path.exists():
             model_path = bundle_path
         elif pipeline_path.exists():
             model_path = pipeline_path
         else:
-            raise SystemExit('No model specified and no pipeline/bundle found in models/')
+            raise SystemExit(
+                "No model specified and no pipeline/bundle found in models/"
+            )
 
     # if a directory is passed, look for common names
     if model_path.is_dir():
-        b = model_path / 'stacking_model_bundle.joblib'
-        p = model_path / 'pipeline.joblib'
-        legacy = model_path / 'stacking_model.joblib'
+        b = model_path / "stacking_model_bundle.joblib"
+        p = model_path / "pipeline.joblib"
+        legacy = model_path / "stacking_model.joblib"
         if b.exists():
             model_path = b
         elif p.exists():
@@ -68,28 +92,32 @@ def main() -> None:
         elif legacy.exists():
             model_path = legacy
         else:
-            raise SystemExit(f'No recognized model artifact found in {model_path}')
+            raise SystemExit(f"No recognized model artifact found in {model_path}")
 
     if not model_path.exists():
-        raise SystemExit(f'Model path not found: {model_path}')
+        raise SystemExit(f"Model path not found: {model_path}")
 
     features_csv = Path(args.features)
     if not features_csv.exists():
-        raise SystemExit(f'Features CSV not found: {features_csv}')
+        raise SystemExit(f"Features CSV not found: {features_csv}")
 
-    out_csv = Path(args.out) if args.out else (reports_dir / (features_csv.stem + '_predictions.csv'))
+    out_csv = (
+        Path(args.out)
+        if args.out
+        else (reports_dir / (features_csv.stem + "_predictions.csv"))
+    )
 
-    print(f'Loading features from {features_csv}')
+    print(f"Loading features from {features_csv}")
     try:
         features_df = pd.read_csv(features_csv)
     except Exception as e:
-        raise SystemExit(f'Error loading features CSV: {e}')
+        raise SystemExit(f"Error loading features CSV: {e}")
 
-    print(f'Loading model from {model_path}')
+    print(f"Loading model from {model_path}")
     try:
         loaded_model = joblib.load(model_path)
     except Exception as e:
-        raise SystemExit(f'Error loading model: {e}')
+        raise SystemExit(f"Error loading model: {e}")
 
     # default processing variables
     model = None
@@ -99,13 +127,13 @@ def main() -> None:
     feature_cols = None
 
     # Case 1: bundle dict
-    if isinstance(loaded_model, dict) and 'model' in loaded_model:
-        print('Detected model bundle with preprocessing')
-        model = loaded_model['model']
-        imputer = loaded_model.get('imputer')
-        scaler = loaded_model.get('scaler')
-        dropped = loaded_model.get('dropped_columns', []) or []
-        feature_cols = loaded_model.get('feature_columns')
+    if isinstance(loaded_model, dict) and "model" in loaded_model:
+        print("Detected model bundle with preprocessing")
+        model = loaded_model["model"]
+        imputer = loaded_model.get("imputer")
+        scaler = loaded_model.get("scaler")
+        dropped = loaded_model.get("dropped_columns", []) or []
+        feature_cols = loaded_model.get("feature_columns")
 
         df_proc = features_df.copy()
         for c in dropped:
@@ -115,12 +143,12 @@ def main() -> None:
         if feature_cols:
             missing = [c for c in feature_cols if c not in df_proc.columns]
             if missing:
-                print(f'Warning: missing expected feature columns: {missing}')
+                print(f"Warning: missing expected feature columns: {missing}")
             df_proc = df_proc[[c for c in feature_cols if c in df_proc.columns]]
 
         df_proc = df_proc.replace([np.inf, -np.inf], np.nan)
         if imputer is None:
-            imputer = SimpleImputer(strategy='median')
+            imputer = SimpleImputer(strategy="median")
         X = imputer.transform(df_proc)
         if scaler is None:
             scaler = StandardScaler()
@@ -131,32 +159,42 @@ def main() -> None:
     else:
         model = loaded_model
         # If it looks like a Pipeline, use directly
-        if hasattr(model, 'named_steps'):
-            print('Detected sklearn Pipeline — using it directly')
-            X = features_df.drop(columns=['label']) if 'label' in features_df.columns else features_df.copy()
+        if hasattr(model, "named_steps"):
+            print("Detected sklearn Pipeline — using it directly")
+            X = (
+                features_df.drop(columns=["label"])
+                if "label" in features_df.columns
+                else features_df.copy()
+            )
             X = X.replace([np.inf, -np.inf], np.nan).fillna(0)
             preds = model.predict(X)
         else:
             # plain estimator — require force flag
             if not args.force_legacy:
-                raise SystemExit('Loaded a legacy estimator; re-run with --force-legacy to permit best-effort prediction')
-            print('Legacy estimator: applying best-effort predict (fill NaN with 0)')
-            X = features_df.drop(columns=['label']) if 'label' in features_df.columns else features_df.copy()
+                raise SystemExit(
+                    "Loaded a legacy estimator; re-run with --force-legacy to permit best-effort prediction"
+                )
+            print("Legacy estimator: applying best-effort predict (fill NaN with 0)")
+            X = (
+                features_df.drop(columns=["label"])
+                if "label" in features_df.columns
+                else features_df.copy()
+            )
             X = X.replace([np.inf, -np.inf], np.nan).fillna(0)
             preds = model.predict(X)
 
     # Save predictions
     output_df = features_df.copy()
-    output_df['prediction'] = preds
+    output_df["prediction"] = preds
     try:
         output_df.to_csv(out_csv, index=False)
-        print(f'Wrote predictions to {out_csv}')
+        print(f"Wrote predictions to {out_csv}")
     except Exception as e:
-        raise SystemExit(f'Error saving predictions: {e}')
+        raise SystemExit(f"Error saving predictions: {e}")
 
     # Optional analysis
-    if args.analyze and 'label' in features_df.columns:
-        y_true = features_df['label']
+    if args.analyze and "label" in features_df.columns:
+        y_true = features_df["label"]
         # ensure types are compatible (best-effort)
         y_true = y_true.astype(str)
         preds = preds.astype(str)
@@ -166,23 +204,29 @@ def main() -> None:
             report = None
         # write JSON report if possible
         if report is not None:
-            with open(reports_dir / (features_csv.stem + '_prediction_report.json'), 'w') as fh:
+            with open(
+                reports_dir / (features_csv.stem + "_prediction_report.json"), "w"
+            ) as fh:
                 json.dump(report, fh, indent=2)
-            print(f'Wrote classification report to {reports_dir / (features_csv.stem + "_prediction_report.json")}')
+            print(
+                f'Wrote classification report to {reports_dir / (features_csv.stem + "_prediction_report.json")}'
+            )
 
         # confusion matrix
         try:
             cm = confusion_matrix(y_true, preds)
             disp = ConfusionMatrixDisplay(confusion_matrix=cm)
             plt.figure(figsize=(8, 6))
-            disp.plot(values_format='d', cmap='Blues')
-            plt.title('Confusion Matrix (provided CSV)')
-            plt.savefig(plots_dir / (features_csv.stem + '_confusion_matrix.png'))
+            disp.plot(values_format="d", cmap="Blues")
+            plt.title("Confusion Matrix (provided CSV)")
+            plt.savefig(plots_dir / (features_csv.stem + "_confusion_matrix.png"))
             plt.close()
-            print(f'Wrote confusion matrix to {plots_dir / (features_csv.stem + "_confusion_matrix.png")}')
+            print(
+                f'Wrote confusion matrix to {plots_dir / (features_csv.stem + "_confusion_matrix.png")}'
+            )
         except Exception as exc:
-            print('Could not create confusion matrix:', exc)
+            print("Could not create confusion matrix:", exc)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
