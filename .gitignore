@@ -29,5 +29,5 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Analysis results (uncomment if you want to ignore these)
-# analysis_results/
+# Data files
+data/
