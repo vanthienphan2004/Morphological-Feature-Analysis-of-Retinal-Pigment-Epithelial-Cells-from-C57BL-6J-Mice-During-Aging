@@ -1,5 +1,8 @@
 # Morphological Feature Analysis of Retinal Pigment Epithelial Cells from C57BL/6J Mice during Aging
 
+*Department of Mathematics and Statistics, College of Arts and Sciences, Georgia State University*
+*Department of Ophthalmology, Emory University*
+
 A configuration-driven Python application for extracting, aggregating, and analyzing morphological features from Retinal Pigment Epithelium (RPE) image crops. The pipeline produces cleaned feature tables, trains a stacking ensemble classifier (XGBoost + LightGBM + CatBoost), performs feature importance analysis, and generates reproducible model artifacts.
 
 The codebase is written in clean, maintainable Python following PEP 8 standards, with comprehensive docstrings, type hints, and robust error handling.
@@ -41,6 +44,7 @@ pre-commit install
 This will run Black code formatting on commits.
 
 ## Usage
+
 ```
 
 2. Edit `config.json` to set `paths.image_directory`, `paths.output_directory`, and any feature or analysis parameters.
@@ -63,6 +67,18 @@ The automated pipeline consists of 7 steps:
 5. **Save Artifacts**: Saves model bundle, preprocessing objects, reports, and plots.
 6. **Feature Importance**: Extracts and visualizes top feature importances from the trained ensemble model.
 7. **Feature Insights**: Creates violin plots with trendlines for top N features across age groups.
+
+## Key Analysis Findings
+
+### Cumulative Explained Variance PCA Plot and Scree Plot
+
+The Cumulative Explained Variance PCA Plot illustrates how much variance in the dataset is captured as more Principal Components (PCs) are added. The cumulative explained variance PCA plots for the red and green channels each show a total of 35 principal components, yet both require only 3 components to surpass the 95% variance threshold. This indicates that most of the important variation within each color channel is captured in the first few components. On the other hand, the combined channel—which includes features from both red and green—has 70 components in total and needs 5 components to exceed the same 95% threshold. This is expected, as merging features from both channels increases the overall dimensionality, requiring more components to account for the total variance. In conclusion, the red and green channels offer more compact and efficient representations of feature variance, where 3 principal components capture most of the relevant information. The combined channel, while richer in information, demonstrates a more gradual decline in variance contribution per component.
+
+### Feature Importance Analysis
+
+The horizontal bar chart displays the 20 most important features in our dataset as determined by the Random Forest algorithm. Among these features, `green_canny_edges` stands out with an importance score of more than 0.06, making it the most significant feature. The second most important feature, `green_lbp_0`, has an importance score that is more than 0.02 points lower than `green_canny_edges`, emphasizing its relatively lower contribution but still being highly relevant. The dominance of `green_canny_edges` suggests that structural boundaries in RPE cells are critical for age classification, while `green_lbp_0` indicates that local texture variations also play a significant role. Overall, texture and shape features were the most influential.
+
+![Top 20 Feature Importances](analysis_results/plots/feature_importances.png)
 
 ## Configuration
 
@@ -158,6 +174,7 @@ This will load the saved model, preprocess the features using the saved preproce
 ## Troubleshooting & Tips
 
 - **Dependencies**: The project requires XGBoost, LightGBM, and CatBoost. On some systems, you may need to install these separately:
+
   ```powershell
   pip install xgboost lightgbm catboost
   ```
@@ -174,6 +191,20 @@ This will load the saved model, preprocess the features using the saved preproce
 
 - **Code Quality**: All scripts follow PEP 8 with type hints and docstrings for maintainability.
 
+## Acknowledgements
+
+A heartfelt thank you to Dr. Yi Jiang for her tutelage. Our deepest gratitude to the Center for the Advancement of Students and Alumni (CASA), the Research Initiation in Mathematics, Mathematics Education, and Statistics Program (RIMMES), and the Honors College at Perimeter College. RPE flat-mount images were provided by Emory University, Department of Ophthalmology.
+
 ## License
 
 MIT
+
+## References
+
+[1] Bhatia, S. K., A. Rashid, M. A. Chrenek, Q. Zhang, B. B. Bruce, M. Klein, J. H. Boatright, Y. Jiang, H. E. Grossniklaus, and J. M. Nickerson. 2016. “Analysis of RPE Morphometry in Human Eyes.” Molecular Vision 22 (July): 898–916.
+
+[2] Kim, Y.-K., H. Yu, V. R. Summers, K. J. Donaldson, S. Ferdous, D. Shelton, N. Zhang, et al. 2021. “Morphometric Analysis of Retinal Pigment Epithelial Cells From C57BL/6J Mice During Aging.” Investigative Ophthalmology & Visual Science 62 (2): 32. <https://doi.org/10.1167/iovs.62.2.32>
+
+[3] Rashid, A., S. K. Bhatia, K. I. Mazzitello, M. A. Chrenek, Q. Zhang, J. H. Boatright, H. E. Grossniklaus, Y. Jiang, and J. M. Nickerson. 2016. “RPE Cell and Sheet Properties in Normal and Diseased Eyes.” Advances in Experimental Medicine and Biology 854: 757–63. <https://doi.org/10.1007/978-3-319-17121-0_101>
+
+[4] Yang, S., J. Zhou, and D. Li. 2021. “Functions and Diseases of the Retinal Pigment Epithelium.” Frontiers in Pharmacology 12 (July 28): 727870. <https://doi.org/10.3389/fphar.2021.727870>
