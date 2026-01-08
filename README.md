@@ -1,62 +1,26 @@
 # Morphological Feature Analysis of Retinal Pigment Epithelial Cells from C57BL/6J Mice during Aging
 
-*Department of Mathematics and Statistics, College of Arts and Sciences, Georgia State University*
+*Department of Mathematics and Statistics, College of Arts and Sciences, Georgia State University*  
 *Department of Ophthalmology, Emory University*
+
+## 1. Abstract
 
 A configuration-driven Python application for extracting, aggregating, and analyzing morphological features from Retinal Pigment Epithelium (RPE) image crops. The pipeline produces cleaned feature tables, trains a stacking ensemble classifier (XGBoost + LightGBM + CatBoost), performs feature importance analysis, and generates reproducible model artifacts.
 
+## 2. Introduction
+
+**Input**: Labeled folders of TIFF image crops (per-image) or precomputed feature CSVs.  
+**Pipeline**: 7-step automated workflow (extraction → cleaning → CSV loading → training → artifacts → feature importance → violin plots).  
+**Features**: 133+ morphological features including shape, intensity stats, texture (LBP, GLCM, Gabor), nuclear features, and spatial measures.  
+**Processing**: Aggregates per-region measurements into per-image summaries (count, mean, median, std, min, max).  
+**Modeling**: Cleans data (inf→NaN), drops columns with excessive missingness, imputes (median), scales, trains a stacking ensemble (XGBoost + LightGBM + CatBoost with LogisticRegression meta-learner), extracts feature importances, and generates advanced feature insights.  
+**Outputs**: Cleaned/raw features CSV, confusion matrix, JSON classification report, feature importance CSV and plot, feature insights plots, and saved model bundle for reproducible prediction.
+
 The codebase is written in clean, maintainable Python following PEP 8 standards, with comprehensive docstrings, type hints, and robust error handling.
 
-**Version**: 1.0.0  
-**Last Updated**: November 12, 2025  
-**License**: MIT
+## 3. Methodology
 
-This README provides a comprehensive project overview, installation and usage instructions, configuration notes, and a quick reference for all included scripts and outputs.
-
-## Project Summary
-
-- **Inputs**: Labeled folders of TIFF image crops (per-image) or precomputed feature CSVs
-- **Pipeline**: 7-step automated workflow (extraction → cleaning → CSV loading → training → artifacts → feature importance → violin plots)
-- **Features**: 133+ morphological features including shape, intensity stats, texture (LBP, GLCM, Gabor), nuclear features, and spatial measures
-- **Processing**: Aggregates per-region measurements into per-image summaries (count, mean, median, std, min, max)
-- **Modeling**: Cleans data (inf→NaN), drops columns with excessive missingness, imputes (median), scales, trains a stacking ensemble (XGBoost + LightGBM + CatBoost with LogisticRegression meta-learner), extracts feature importances, and generates advanced feature insights
-- **Outputs**: Cleaned/raw features CSV, confusion matrix, JSON classification report, feature importance CSV and plot, feature insights plots, and saved model bundle for reproducible prediction
-
-## Quick Start (Windows PowerShell)
-
-1. From the project folder, create and activate a virtual environment and install dependencies:
-
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-### Development Setup
-
-For development, install pre-commit hooks to ensure code quality:
-
-```powershell
-pip install pre-commit
-pre-commit install
-```
-
-This will run Black code formatting on commits.
-
-## Usage
-
-```
-
-2. Edit `config.json` to set `paths.image_directory`, `paths.output_directory`, and any feature or analysis parameters.
-3. Run the full pipeline (verbose):
-
-```powershell
-py -3 -u .\main.py -c .\config.json -v
-```
-
-This will run the complete 7-step pipeline: extract features, clean and preprocess them, load cleaned data from CSV, train the model, extract feature importances, create violin plots, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
-
-## Pipeline Overview
+### 3.1. Pipeline Overview
 
 The automated pipeline consists of 7 steps:
 
@@ -68,52 +32,58 @@ The automated pipeline consists of 7 steps:
 6. **Feature Importance**: Extracts and visualizes top feature importances from the trained ensemble model.
 7. **Feature Insights**: Creates violin plots with trendlines for top N features across age groups.
 
-## Key Analysis Findings
+### 3.2. Feature Engineering
 
-### Cumulative Explained Variance PCA Plot and Scree Plot
+The pipeline processes valid image crops to extract **133+ features** per image, categorized into five groups. This robust feature set captures the comprehensive morphological profile of the RPE cells.
 
-The Cumulative Explained Variance PCA Plot illustrates how much variance in the dataset is captured as more Principal Components (PCs) are added. The cumulative explained variance PCA plots for the red and green channels each show a total of 35 principal components, yet both require only 3 components to surpass the 95% variance threshold. This indicates that most of the important variation within each color channel is captured in the first few components. On the other hand, the combined channel—which includes features from both red and green—has 70 components in total and needs 5 components to exceed the same 95% threshold. This is expected, as merging features from both channels increases the overall dimensionality, requiring more components to account for the total variance. In conclusion, the red and green channels offer more compact and efficient representations of feature variance, where 3 principal components capture most of the relevant information. The combined channel, while richer in information, demonstrates a more gradual decline in variance contribution per component.
+#### 3.2.1. Morphological (Shape) Features
 
-### Feature Importance Analysis
+These features describe the geometry and shape of individual cells, aggregated at the image level (mean, median, std, min, max, count).
 
-The horizontal bar chart displays the 20 most important features in our dataset as determined by the Random Forest algorithm. Among these features, `green_canny_edges` stands out with an importance score of more than 0.06, making it the most significant feature. The second most important feature, `green_lbp_0`, has an importance score that is more than 0.02 points lower than `green_canny_edges`, emphasizing its relatively lower contribution but still being highly relevant. The dominance of `green_canny_edges` suggests that structural boundaries in RPE cells are critical for age classification, while `green_lbp_0` indicates that local texture variations also play a significant role. Overall, texture and shape features were the most influential.
+- **Area & Perimeter**: Size and boundary length of the cell.
+- **Major & Minor Axis**: Length of the primary and secondary axes of the fitted ellipse.
+- **Aspect Ratio**: Ratio of major to minor axis (elongation).
+- **Eccentricity**: Deviation from a perfect circle (0 = circle, 1 = line).
+- **Solidity**: Ratio of the region area to the convex hull area (measures convexity/smoothness).
+- **Circularity**: Measure of how close the shape is to a perfect circle ($4\pi \times Area / Perimeter^2$).
+- **Cell Count & Density**: Total number of cells and cells per unit area.
 
-![Top 20 Feature Importances](analysis_results/plots/feature_importances.png)
+#### 3.2.2. Intensity (Pixel) Statistics
 
-## Configuration
+Global statistics derived from the grayscale pixel intensity values, reflecting overall brightness and variation.
 
-All runtime parameters are in `config.json` next to `main.py`. Key configuration sections:
+- **Mean & Std**: Average brightness and contrast.
+- **Skewness**: Asymmetry of the intensity distribution.
+- **Kurtosis**: Tail heaviness of the intensity distribution.
 
-- **`paths`**:
+#### 3.2.3. Texture Analysis
 
-  - `image_directory` — Folder of labeled subfolders containing TIFF crops.
-  - `output_directory` — Where CSVs, plots, and models are written.
-  - `output_features_csv` — Optional path for the extracted features CSV.
-- **`analysis_params`**:
+Advanced texture descriptors to capture micro-patterns and surface details.
 
-  - `cv_folds` — Number of cross-validation folds (default: 5).
-  - `random_state` — Random seed for reproducibility (default: 42).
-  - `max_nan_fraction` — Maximum allowed NaN fraction for columns before dropping (default: 0.5).
-  - `test_size` — Train/test split ratio (default: 0.2).
-  - `impute_strategy` — Imputation method (default: "median").
-  - `rf_params` — RandomForest parameters (n_estimators, max_depth).
-  - `target_column` — Name of target column (default: "label").
-- **`feature_params`**:
+- **Local Binary Patterns (LBP)**: Captures local texture patterns by comparing each pixel with its neighbors.
+- **Gray-Level Co-occurrence Matrix (GLCM)**: Measures texture based on the spatial relationship of pixels.
+  - *Contrast, Dissimilarity, Homogeneity, Energy, Correlation, ASM*.
+- **Gabor Filters**: Captures specific frequency and orientation content ($0^\circ, 45^\circ, 90^\circ$ at multiple frequencies).
 
-  - `lbp_points`, `lbp_radius` — Local Binary Pattern parameters.
-  - `glcm_levels` — GLCM quantization levels.
-  - `gabor_frequencies`, `gabor_angles` — Gabor filter parameters.
-  - `use_otsu` — Whether to use Otsu thresholding (default: true).
-  - Channel thresholds for segmentation.
-- **`feature_insights_params`**:
+#### 3.2.4. Nuclear Features
 
-  - `top_features_count` — Number of top features to analyze (default: 10).
+(Optional) Detailed metrics for the nucleus (red channel) relative to the cell body.
 
-Modify these values to tune extraction and modeling without editing code.
+- **Nuclear Area, Perimeter, Axes**: Geometry of the nucleus.
+- **Nuclear Circularity & Solidity**: Shape regularity of the nucleus.
+- **N/C Ratio (Nucleus-to-Cytoplasm Ratio)**: Ratio of nuclear area to cytoplasmic area, a key indicator of cell health and aging.
 
-## Project Structure
+#### 3.2.5. Spatial Distribution
 
-```
+Measures the organization and spacing of cells.
+
+- **Nearest Neighbor Distance (Mean/Std)**: Average distance to the nearest neighboring cell, indicating clustering or regularity.
+
+### 3.3. Computational Framework
+
+#### 3.3.1. Project Structure
+
+```text
 Morphological-Feature-Analysis-of-Retinal-Pigment-Epithelial-Cells-from-C57BL-6J-Mice-During-Aging/
 ├── .git/                          # Git repository
 ├── .gitignore                     # Git ignore patterns
@@ -133,7 +103,7 @@ Morphological-Feature-Analysis-of-Retinal-Pigment-Epithelial-Cells-from-C57BL-6J
     └── visualize_channels.py      # Image channel visualization
 ```
 
-## Files and Scripts
+#### 3.3.2. Files and Scripts
 
 - `main.py` — **Main entrypoint**. Orchestrates the complete 7-step pipeline.
 - `config.json` — Runtime configuration (paths, feature params, analysis params).
@@ -150,7 +120,44 @@ Morphological-Feature-Analysis-of-Retinal-Pigment-Epithelial-Cells-from-C57BL-6J
 
 All scripts follow PEP 8 standards with type hints, comprehensive docstrings, and robust error handling.
 
-## Outputs (Default Location: `analysis_results/`, Organized into `reports/`, `models/`, and `plots/`)
+## 4. Experimental Results
+
+### 4.1. Key Analysis Findings
+
+#### 4.1.1. Feature Importance Analysis
+
+The analysis highlights the significant role of texture and shape features in classifying RPE cells. The top features are dominated by **Local Binary Patterns (LBP)**, with `lbp_9` and `lbp_1` being the most influential. **Circularity** (`circularity_median`, `circularity_std`) and **Aspect Ratio** (`aspect_ratio_std`) are also highly important, suggesting that both the textural complexity and the geometric shape of the cells are critical biomarkers for aging.
+
+![Top Feature Importances](analysis_results/plots/feature_importances.png)
+
+### 4.2. Classification Results
+
+The stacking ensemble model (XGBoost + LightGBM + CatBoost) achieved valid high performance across all age groups.
+
+#### 4.2.1. Summary Metrics
+
+| Metric                | Score      |
+| :-------------------- | :--------- |
+| **Accuracy**          | **0.9939** |
+| **Weighted F1-Score** | **0.9939** |
+| **Macro F1-Score**    | **0.9957** |
+
+#### 4.2.2. Per-Class Performance
+
+| Class (Age Group) | Precision | Recall | F1-Score | Support |
+| :---------------- | :-------- | :----- | :------- | :------ |
+| **0 - 30 Days**   | 1.00      | 1.00   | 1.00     | 14      |
+| **1 - 45 Days**   | 1.00      | 1.00   | 1.00     | 30      |
+| **2 - 60 Days**   | 1.00      | 0.98   | 0.99     | 44      |
+| **3 - 180 Days**  | 0.99      | 1.00   | 0.99     | 152     |
+| **4 - 330 Days**  | 1.00      | 0.98   | 0.99     | 63      |
+| **5 - 720 Days**  | 1.00      | 1.00   | 1.00     | 23      |
+
+*Note: Class labels correspond to specific age groups.*
+
+### 4.3. Outputs
+
+(Default Location: `analysis_results/`, Organized into `reports/`, `models/`, and `plots/`)
 
 - **`reports/rpe_extracted_features.csv`** — Raw extracted features (one row per image).
 - **`reports/rpe_extracted_features_cleaned.csv`** — Cleaned + scaled features.
@@ -161,7 +168,41 @@ All scripts follow PEP 8 standards with type hints, comprehensive docstrings, an
 - **`plots/top_features_violin_plots.png`** — Violin plots with trendlines comparing distributions of top features across age groups.
 - **`models/model.joblib`**, **`models/preprocessor.joblib`** — Saved model and preprocessing artifacts.
 
-## Predicting on New Data
+## 5. Reproducibility & Usage
+
+### 5.1. Installation
+
+1. From the project folder, create and activate a virtual environment and install dependencies:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+#### 5.1.1. Development Setup
+
+For development, install pre-commit hooks to ensure code quality:
+
+```powershell
+pip install pre-commit
+pre-commit install
+```
+
+This will run Black code formatting on commits.
+
+### 5.2. Execution
+
+1. Edit `config.json` to set `paths.image_directory`, `paths.output_directory`, and any feature or analysis parameters.
+2. Run the full pipeline (verbose):
+
+```powershell
+py -3 -u .\main.py -c .\config.json -v
+```
+
+This will run the complete 7-step pipeline: extract features, clean and preprocess them, load cleaned data from CSV, train the model, extract feature importances, create violin plots, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
+
+#### 5.2.1. Predicting on New Data
 
 To predict on new data using the saved model:
 
@@ -171,40 +212,66 @@ py -3 scripts\load_model_bundle_and_predict.py --features "analysis_results\repo
 
 This will load the saved model, preprocess the features using the saved preprocessing pipeline, make predictions, and save them to a CSV file.
 
-## Troubleshooting & Tips
+### 5.3. Configuration
+
+All runtime parameters are in `config.json` next to `main.py`. Key configuration sections:
+
+- **`paths`**:
+  - `image_directory` — Folder of labeled subfolders containing TIFF crops.
+  - `output_directory` — Where CSVs, plots, and models are written.
+  - `output_features_csv` — Optional path for the extracted features CSV.
+- **`analysis_params`**:
+  - `cv_folds` — Number of cross-validation folds (default: 5).
+  - `random_state` — Random seed for reproducibility (default: 42).
+  - `max_nan_fraction` — Maximum allowed NaN fraction for columns before dropping (default: 0.5).
+  - `test_size` — Train/test split ratio (default: 0.2).
+  - `impute_strategy` — Imputation method (default: "median").
+  - `rf_params` — RandomForest parameters (n_estimators, max_depth).
+  - `target_column` — Name of target column (default: "label").
+- **`feature_params`**:
+  - `lbp_points`, `lbp_radius` — Local Binary Pattern parameters.
+  - `glcm_levels` — GLCM quantization levels.
+  - `gabor_frequencies`, `gabor_angles` — Gabor filter parameters.
+  - `use_otsu` — Whether to use Otsu thresholding (default: true).
+  - Channel thresholds for segmentation.
+- **`feature_insights_params`**:
+  - `top_features_count` — Number of top features to analyze (default: 10).
+
+Modify these values to tune extraction and modeling without editing code.
+
+### 5.4. Troubleshooting & Tips
 
 - **Dependencies**: The project requires XGBoost, LightGBM, and CatBoost. On some systems, you may need to install these separately:
 
   ```powershell
   pip install xgboost lightgbm catboost
   ```
-  
+
 - **Error Handling**: The code includes robust error handling for file I/O, image processing, and data operations.
-
 - **Configuration**: Ensure `paths.image_directory` points to the correct folder with readable TIFF files.
-
 - **Data Quality**: If many columns are dropped, lower `analysis_params.max_nan_fraction` or inspect the features CSV for missing values.
-
 - **Memory Usage**: For large image datasets, consider reducing `feature_params.glcm_levels` or `gabor_frequencies` arrays.
-
 - **Model Training**: The stacking ensemble uses 5-fold cross-validation by default. Adjust `cv_folds` for faster training or more robust validation.
-
 - **Code Quality**: All scripts follow PEP 8 with type hints and docstrings for maintainability.
 
-## Acknowledgements
+## 6. Acknowledgements
 
 A heartfelt thank you to Dr. Yi Jiang for her tutelage. Our deepest gratitude to the Center for the Advancement of Students and Alumni (CASA), the Research Initiation in Mathematics, Mathematics Education, and Statistics Program (RIMMES), and the Honors College at Perimeter College. RPE flat-mount images were provided by Emory University, Department of Ophthalmology.
 
-## License
-
-MIT
-
-## References
+## 7. References
 
 [1] Bhatia, S. K., A. Rashid, M. A. Chrenek, Q. Zhang, B. B. Bruce, M. Klein, J. H. Boatright, Y. Jiang, H. E. Grossniklaus, and J. M. Nickerson. 2016. “Analysis of RPE Morphometry in Human Eyes.” Molecular Vision 22 (July): 898–916.
 
-[2] Kim, Y.-K., H. Yu, V. R. Summers, K. J. Donaldson, S. Ferdous, D. Shelton, N. Zhang, et al. 2021. “Morphometric Analysis of Retinal Pigment Epithelial Cells From C57BL/6J Mice During Aging.” Investigative Ophthalmology & Visual Science 62 (2): 32. <https://doi.org/10.1167/iovs.62.2.32>
+[2] Kim, Y.-K., H. Yu, V. R. Summers, K. J. Donaldson, S. Ferdous, D. Shelton, N. Zhang, et al. 2021. “Morphometric Analysis of Retinal Pigment Epithelial Cells From C57BL/6J Mice During Aging.” Investigative Ophthalmology & Visual Science 62 (2): 32. [https://doi.org/10.1167/iovs.62.2.32](https://doi.org/10.1167/iovs.62.2.32)
 
-[3] Rashid, A., S. K. Bhatia, K. I. Mazzitello, M. A. Chrenek, Q. Zhang, J. H. Boatright, H. E. Grossniklaus, Y. Jiang, and J. M. Nickerson. 2016. “RPE Cell and Sheet Properties in Normal and Diseased Eyes.” Advances in Experimental Medicine and Biology 854: 757–63. <https://doi.org/10.1007/978-3-319-17121-0_101>
+[3] Rashid, A., S. K. Bhatia, K. I. Mazzitello, M. A. Chrenek, Q. Zhang, J. H. Boatright, H. E. Grossniklaus, Y. Jiang, and J. M. Nickerson. 2016. “RPE Cell and Sheet Properties in Normal and Diseased Eyes.” Advances in Experimental Medicine and Biology 854: 757–63. [https://doi.org/10.1007/978-3-319-17121-0_101](https://doi.org/10.1007/978-3-319-17121-0_101)
 
-[4] Yang, S., J. Zhou, and D. Li. 2021. “Functions and Diseases of the Retinal Pigment Epithelium.” Frontiers in Pharmacology 12 (July 28): 727870. <https://doi.org/10.3389/fphar.2021.727870>
+[4] Yang, S., J. Zhou, and D. Li. 2021. “Functions and Diseases of the Retinal Pigment Epithelium.” Frontiers in Pharmacology 12 (July 28): 727870. [https://doi.org/10.3389/fphar.2021.727870](https://doi.org/10.3389/fphar.2021.727870)
+
+## 8. License
+
+MIT
+
+---
+**Version**: 1.0.0  
+**Last Updated**: November 12, 2025
