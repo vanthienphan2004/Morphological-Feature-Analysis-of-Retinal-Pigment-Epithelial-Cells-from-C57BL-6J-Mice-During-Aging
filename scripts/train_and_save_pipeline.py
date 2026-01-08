@@ -240,6 +240,19 @@ def save_artifacts(
         joblib.dump(trained_model, models_dir / "model.joblib")
         print(f"Saved trained model to {models_dir / 'model.joblib'}")
 
+        # Create and save full bundle (Model + Preprocessor Info)
+        # We load the bundle saved by clean_and_prepare to get feature metadata
+        preproc_bundle_path = models_dir / "feature_preprocessing_bundle.joblib"
+        if preproc_bundle_path.exists():
+            full_bundle = joblib.load(preproc_bundle_path)
+            full_bundle["model"] = trained_model
+            
+            bundle_path = models_dir / "stacking_model_bundle.joblib"
+            joblib.dump(full_bundle, bundle_path)
+            print(f"Saved full model bundle to {bundle_path}")
+        else:
+            print("Warning: feature_preprocessing_bundle.joblib not found; skipping full bundle creation.")
+
     except Exception as e:
         raise RuntimeError(f"Failed to save model artifacts: {e}") from e
 

@@ -174,45 +174,69 @@ The stacking ensemble model (XGBoost + LightGBM + CatBoost) achieved valid high 
 
 1. From the project folder, create and activate a virtual environment and install dependencies:
 
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+# For macOS users with Apple Silicon (M1/M2/M3), you may need OpenMP:
+brew install libomp
 ```
 
 #### 5.1.1. Development Setup
 
 For development, install pre-commit hooks to ensure code quality:
 
-```powershell
+```bash
 pip install pre-commit
 pre-commit install
 ```
 
 This will run Black code formatting on commits.
 
-### 5.2. Execution
+### 5.2. Training the Model (Full Pipeline)
 
 1. Edit `config.json` to set `paths.image_directory`, `paths.output_directory`, and any feature or analysis parameters.
-2. Run the full pipeline (verbose):
+2. Run the full pipeline (extract features -> clean -> train -> save):
 
-```powershell
-py -3 -u .\main.py -c .\config.json -v
+```bash
+python3 -u main.py -c config.json -v
 ```
 
-This will run the complete 7-step pipeline: extract features, clean and preprocess them, load cleaned data from CSV, train the model, extract feature importances, create violin plots, and save all outputs to the configured `output_directory` (organized into `reports/`, `models/`, and `plots/` subfolders).
+This will run the complete 7-step pipeline and save the trained model to `analysis_results/models/`.
 
-#### 5.2.1. Predicting on New Data
+### 5.3. Predicting on New Data (No Training)
 
-To predict on new data using the saved model:
+Use these commands to run predictions using your **already trained model**. These steps do **not** re-train the model.
 
-```powershell
-py -3 scripts\load_model_bundle_and_predict.py --features "analysis_results\reports\rpe_extracted_features_cleaned.csv" --model "analysis_results\models\model.joblib" --output "analysis_results\reports\predictions.csv"
+#### 5.3.1. Predicting from a Features CSV
+
+If you already have a CSV file containing features (e.g., `new_data.csv`):
+
+```bash
+PYTHONPATH=. python3 scripts/load_model_bundle_and_predict.py --features "new_data.csv" --out "new_predictions.csv"
 ```
 
-This will load the saved model, preprocess the features using the saved preprocessing pipeline, make predictions, and save them to a CSV file.
+*Note: The script automatically handles data cleaning and scaling using the parameters saved from your training run.*
 
-### 5.3. Configuration
+#### 5.3.2. Predicting from Raw Images
+
+If you have a folder of new images to analyze:
+
+1. **Extract Features from Images**:
+
+    ```bash
+    python3 -c "from scripts.feature_extraction import extract_features_from_directory; import json; config=json.load(open('config.json')); extract_features_from_directory('PATH_TO_NEW_IMAGES', config).to_csv('new_features.csv', index=False)"
+    ```
+
+    *(Replace `PATH_TO_NEW_IMAGES` with the path to your image folder).*
+
+2. **Generate Predictions**:
+
+    ```bash
+    PYTHONPATH=. python3 scripts/load_model_bundle_and_predict.py --features "new_features.csv" --out "new_predictions.csv"
+    ```
+
+### 5.4. Configuration
 
 All runtime parameters are in `config.json` next to `main.py`. Key configuration sections:
 

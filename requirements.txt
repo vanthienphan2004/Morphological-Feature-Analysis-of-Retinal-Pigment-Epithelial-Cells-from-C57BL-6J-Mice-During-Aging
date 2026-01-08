@@ -1,29 +1,32 @@
+# System Dependency Note:
+# macOS Users: Run `brew install libomp` for XGBoost support.
+
 # Core scientific computing
-numpy>=1.21.0
-pandas>=1.5.0
-scipy>=1.7.0
+numpy==2.0.2
+pandas==2.3.3
+scipy==1.13.1
 
 # Machine learning
-scikit-learn>=1.2.0
-joblib>=1.1.0
-xgboost>=1.7.0
-lightgbm>=3.3.0
-catboost>=1.1.0
+scikit-learn==1.6.1
+joblib==1.5.3
+xgboost==2.1.4
+lightgbm==4.6.0
+catboost==1.2.8
 
 # Image processing
-Pillow>=9.0.0
-scikit-image>=0.19.0
+Pillow==11.3.0
+scikit-image==0.24.0
 
 # Visualization
-matplotlib>=3.5.0
-seaborn>=0.11.0
+matplotlib==3.9.4
+seaborn==0.13.2
 
 # Progress bars
-tqdm>=4.62.0
+tqdm==4.67.1
 
 # Specialized ML tools
-kneed>=0.8.0
+kneed==0.8.5
 
 # Development tools
-black>=24.0.0
-pre-commit>=3.0.0
+black==25.11.0
+pre-commit==4.3.0
